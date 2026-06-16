@@ -1,0 +1,32 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+build/
+dist/
+.pytest_cache/
+.ruff_cache/
+
+# Virtual environments
+.venv/
+venv/
+
+# Data & model contents (structure kept via .gitkeep / README)
+data/raw/*
+data/interim/*
+data/processed/*
+models/*
+!data/raw/.gitkeep
+!data/interim/.gitkeep
+!data/processed/.gitkeep
+!models/.gitkeep
+!models/README.md
+
+# Notebooks
+.ipynb_checkpoints/
+
+# OS / editors
+.DS_Store
+*.swp
+.idea/
+.vscode/
