@@ -25,6 +25,14 @@ models/*
 # Notebooks
 .ipynb_checkpoints/
 
+# LaTeX build intermediates (keep .tex, .bib and committed .pdf)
+*.aux
+*.log
+*.out
+*.bbl
+*.blg
+*.toc
+
 # OS / editors
 .DS_Store
 *.swp
