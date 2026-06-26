@@ -5,7 +5,15 @@ description = "Social media misinformation detection: NLP classifier, propagatio
 readme = "README.md"
 requires-python = ">=3.11"
 license = { text = "MIT" }
-dependencies = []
+dependencies = [
+    "torch>=2.2",
+    "torch-geometric>=2.5",
+    "transformers>=4.40",
+    "datasets>=2.19",
+    "scikit-learn>=1.4",
+    "pandas>=2.2",
+    "networkx>=3.2",
+]
 
 [dependency-groups]
 dev = [
@@ -29,3 +37,11 @@ select = ["E", "F", "I", "UP", "B"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
+
+[tool.uv.sources]
+torch = { index = "pytorch-cpu" }
+
+[[tool.uv.index]]
+name = "pytorch-cpu"
+url = "https://download.pytorch.org/whl/cpu"
+explicit = true
