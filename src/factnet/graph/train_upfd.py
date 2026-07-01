@@ -8,6 +8,8 @@ macro-F1 on the test split. Small dataset, runs on CPU.
 
 from __future__ import annotations
 
+from pathlib import Path
+
 import torch
 import torch.nn.functional as F
 from sklearn.metrics import accuracy_score, f1_score
@@ -16,7 +18,7 @@ from torch_geometric.loader import DataLoader
 
 from factnet.graph.models import MODELS
 
-ROOT = "data/raw/upfd"
+ROOT = str(Path(__file__).resolve().parents[3] / "data" / "raw" / "upfd")
 
 
 def load(name: str = "politifact", feature: str = "profile"):

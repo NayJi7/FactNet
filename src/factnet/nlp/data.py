@@ -20,7 +20,7 @@ LIAR_COLS = [
 ]
 # misleading (0) vs reliable (1)
 MISLEADING = {"pants-fire", "false", "barely-true"}
-ROOT = "data/raw/liar"
+ROOT = str(Path(__file__).resolve().parents[3] / "data" / "raw" / "liar")
 LIAR_URL = "https://www.cs.ucsb.edu/~william/data/liar_dataset.zip"
 
 

@@ -10,11 +10,13 @@ the same ranking maps to identifiable accounts.
 
 from __future__ import annotations
 
+from pathlib import Path
+
 import networkx as nx
 from torch_geometric.datasets import UPFD
 from torch_geometric.utils import to_networkx
 
-ROOT = "data/raw/upfd"
+ROOT = str(Path(__file__).resolve().parents[3] / "data" / "raw" / "upfd")
 
 
 def _normalise(d: dict) -> dict:

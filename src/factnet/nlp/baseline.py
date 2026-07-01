@@ -16,6 +16,7 @@ from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.linear_model import LogisticRegression
 from sklearn.metrics import accuracy_score, f1_score
 from sklearn.pipeline import make_pipeline
+from tqdm import tqdm
 
 from factnet.nlp.data import load_liar
 
@@ -31,13 +32,15 @@ def tfidf_logreg(train, test):
 
 
 def embed(texts, model_name: str = "distilbert-base-uncased", batch: int = 32):
+    import transformers
     from transformers import AutoModel, AutoTokenizer
 
+    transformers.logging.set_verbosity_error()  # silence load-report / hub warnings
     tok = AutoTokenizer.from_pretrained(model_name)
     model = AutoModel.from_pretrained(model_name).eval()
     chunks = []
     with torch.no_grad():
-        for i in range(0, len(texts), batch):
+        for i in tqdm(range(0, len(texts), batch), desc="  embedding", unit="batch"):
             enc = tok(texts[i:i + batch], padding=True, truncation=True,
                       max_length=64, return_tensors="pt")
             hidden = model(**enc).last_hidden_state
@@ -64,6 +67,7 @@ def main():
     print("-" * 46)
     acc, f1 = tfidf_logreg(train, test)
     print(f"{'TF-IDF + LogReg':26s} {acc:>9.3f} {f1:>9.3f}")
+    print("  (frozen DistilBERT: embedding on CPU, a few minutes)")
     acc, f1 = frozen_transformer(train, test)
     print(f"{'DistilBERT (frozen) + LR':26s} {acc:>9.3f} {f1:>9.3f}")
 
