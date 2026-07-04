@@ -41,14 +41,19 @@ def cross_domain(topic: str = "health"):
     return f1_in, f1_cross, len(train), len(cross)
 
 
+TOPICS = ("health", "economy", "immigration", "elections", "taxes")
+
+
 def main():
-    topic = "health"
-    f1_in, f1_cross, n_train, n_cross = cross_domain(topic)
-    print(f"Cross-domain generalisation  |  held-out topic: '{topic}'  "
-          f"(train {n_train}, OOD {n_cross})\n")
-    print(f"  in-domain  macro-F1 : {f1_in:.3f}")
-    print(f"  cross-topic macro-F1: {f1_cross:.3f}")
-    print(f"  generalisation gap  : {f1_in - f1_cross:+.3f}")
+    print("Cross-domain generalisation  |  train outside the topic, "
+          "test on the held-out topic\n")
+    print(f"{'held-out topic':14s} {'in-domain':>10s} {'cross':>7s} "
+          f"{'gap':>7s} {'n OOD':>6s}")
+    print("-" * 48)
+    for topic in TOPICS:
+        f1_in, f1_cross, _n_train, n_cross = cross_domain(topic)
+        print(f"{topic:14s} {f1_in:>10.3f} {f1_cross:>7.3f} "
+              f"{f1_in - f1_cross:>+7.3f} {n_cross:>6d}")
 
 
 if __name__ == "__main__":
