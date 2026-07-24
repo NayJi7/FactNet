@@ -53,3 +53,28 @@ def test_profile_features_layout():
 
 def test_profile_features_tolerate_missing_fields():
     assert profile_features({}) == [0.0] * 10
+
+
+def test_cascade_to_pyg_puts_source_first_and_keeps_edges():
+    from factnet.ingestion.to_graph import cascade_to_pyg, normalise_profile
+
+    cascade = collect_cascade(FakeClient(), POST)
+    cascade["label"] = 1
+    data = cascade_to_pyg(cascade)
+
+    assert data.num_nodes == 4
+    assert data.x.shape == (4, 10)
+    assert data.edge_index.shape == (2, 3)
+    assert int(data.y) == 1
+    # the source account is node 0, as in the benchmark cascades
+    expected = normalise_profile(profile_features(SOURCE))
+    assert data.x[0].tolist() == pytest.approx(expected, rel=1e-5)
+
+
+def test_normalise_profile_compresses_counters():
+    from factnet.ingestion.to_graph import normalise_profile
+
+    raw = profile_features({"followersCount": 1_000_000, "handle": "a" * 400})
+    scaled = normalise_profile(raw)
+    assert 0.0 < scaled[2] < 1.0   # follower count compressed
+    assert scaled[7] == 1.0        # over-long text saturates instead of exploding
