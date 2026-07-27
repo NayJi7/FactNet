@@ -78,3 +78,27 @@ def test_normalise_profile_compresses_counters():
     scaled = normalise_profile(raw)
     assert 0.0 < scaled[2] < 1.0   # follower count compressed
     assert scaled[7] == 1.0        # over-long text saturates instead of exploding
+
+
+def test_checkworthiness_separates_claims_from_chatter():
+    from factnet.nlp.checkworthy import explain, score
+
+    claim = ("The Ohio Supreme Court has nullified the $650 million judgement "
+             "that multiple counties won against pharmacy chains.")
+    chatter = "lol I think the chemtrails will continue until wokeness improves"
+
+    assert score(claim) > score(chatter)
+    assert score(claim) >= 0.5
+    assert score(chatter) == 0.0
+    assert score("ok") == 0.0            # too short to assert anything
+    assert explain(claim)["institution"] is True
+    assert explain(chatter)["opinion"] is True
+
+
+def test_checkworthiness_stays_in_range():
+    from factnet.nlp.checkworthy import score
+
+    loaded = ("According to a 2024 government study, the agency reported that 90 percent "
+              "of cases increased after the ban was signed into law.")
+    assert 0.0 <= score(loaded) <= 1.0
+    assert 0.0 <= score("I feel like maybe?") <= 1.0
