@@ -102,3 +102,16 @@ def test_checkworthiness_stays_in_range():
               "of cases increased after the ban was signed into law.")
     assert 0.0 <= score(loaded) <= 1.0
     assert 0.0 <= score("I feel like maybe?") <= 1.0
+
+
+def test_cohen_kappa_and_consensus():
+    from factnet.ingestion.annotate import cohen_kappa, consensus
+
+    assert cohen_kappa([(1, 1), (0, 0), (1, 1), (0, 0)]) == pytest.approx(1.0)
+    assert cohen_kappa([(1, 0), (0, 1), (1, 0), (0, 1)]) < 0.0   # worse than chance
+    assert cohen_kappa([]) != cohen_kappa([])                    # nan for no overlap
+
+    assert consensus({"annotations": {"a": 1, "b": 1}}) == 1
+    assert consensus({"annotations": {"a": 1, "b": 0}}) is None  # disagreement -> unusable
+    assert consensus({"annotations": {"a": 1, "b": None}}) == 1  # a skip does not veto
+    assert consensus({}) is None
