@@ -14,7 +14,6 @@ from __future__ import annotations
 
 import json
 import math
-from collections.abc import Iterator
 from pathlib import Path
 from typing import Any
 
@@ -78,10 +77,3 @@ def cascade_to_pyg(cascade: dict) -> Any:
         data.y = torch.tensor([int(label)])
     return data
 
-
-def iter_pyg(path: str | Path, labelled_only: bool = True) -> Iterator[Any]:
-    """Stream a collected file as graph objects, skipping unlabelled records."""
-    for cascade in read_cascades(path):
-        if labelled_only and cascade.get("label") is None:
-            continue
-        yield cascade_to_pyg(cascade)

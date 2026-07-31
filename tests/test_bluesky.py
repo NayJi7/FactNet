@@ -115,3 +115,32 @@ def test_cohen_kappa_and_consensus():
     assert consensus({"annotations": {"a": 1, "b": 0}}) is None  # disagreement -> unusable
     assert consensus({"annotations": {"a": 1, "b": None}}) == 1  # a skip does not veto
     assert consensus({}) is None
+
+
+def test_anonymise_removes_identities_and_keeps_structure():
+    from factnet.ingestion.anonymise import anonymise
+
+    cascade = collect_cascade(FakeClient(), POST)
+    cascade["query"] = "measles"
+    exported = anonymise([cascade, cascade])   # same accounts in both records
+
+    first, second = exported
+    assert first["cascade_id"] == "C0001"
+    dumped = json.dumps(exported)
+    for identity in ("did:src", "did:re", "source.bsky.social", "resharer.bsky.social"):
+        assert identity not in dumped          # no handle, no DID survives
+    assert "uri" not in first                  # the post URI embeds the author DID
+    assert first["text"] == "a claim"          # the claim itself is kept
+    assert len(first["nodes"]) == 4 and len(first["edges"]) == 3
+    # pseudonyms are stable across the whole sample, so a recurring account stays one account
+    assert {n["account"] for n in first["nodes"]} == {n["account"] for n in second["nodes"]}
+
+
+def test_anonymise_scrubs_handles_cited_inside_the_text():
+    from factnet.ingestion.anonymise import scrub_mentions
+
+    scrubbed = scrub_mentions("As @gavinnewsom.bsky.social said, see nytimes.com and did:plc:abc123")
+    assert "gavinnewsom" not in scrubbed
+    assert "did:plc:abc123" not in scrubbed
+    assert scrubbed.startswith("As @account said")
+    assert scrub_mentions("a plain claim about vaccines") == "a plain claim about vaccines"
