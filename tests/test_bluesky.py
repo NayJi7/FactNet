@@ -139,7 +139,8 @@ def test_anonymise_removes_identities_and_keeps_structure():
 def test_anonymise_scrubs_handles_cited_inside_the_text():
     from factnet.ingestion.anonymise import scrub_mentions
 
-    scrubbed = scrub_mentions("As @gavinnewsom.bsky.social said, see nytimes.com and did:plc:abc123")
+    scrubbed = scrub_mentions(
+        "As @gavinnewsom.bsky.social said, see nytimes.com and did:plc:abc123")
     assert "gavinnewsom" not in scrubbed
     assert "did:plc:abc123" not in scrubbed
     assert scrubbed.startswith("As @account said")
