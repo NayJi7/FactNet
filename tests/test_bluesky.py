@@ -136,6 +136,22 @@ def test_anonymise_removes_identities_and_keeps_structure():
     assert {n["account"] for n in first["nodes"]} == {n["account"] for n in second["nodes"]}
 
 
+def test_anonymise_carries_label_provenance_without_exposing_it_to_the_scrub():
+    from factnet.ingestion.anonymise import anonymise
+
+    cascade = collect_cascade(FakeClient(), POST)
+    keyword_labelled, = anonymise([cascade])
+    assert "source_domain" not in keyword_labelled   # no outlet to attribute the label to
+
+    cascade.update(source_domain="infowars.com", source_label="misleading", label=0)
+    source_labelled, = anonymise([cascade])
+    # the outlet carries a .com, which the mention scrubber rewrites inside free
+    # text; the provenance field must reach the export intact all the same
+    assert source_labelled["source_domain"] == "infowars.com"
+    assert source_labelled["source_label"] == "misleading"
+    assert source_labelled["label"] == 0
+
+
 def test_anonymise_scrubs_handles_cited_inside_the_text():
     from factnet.ingestion.anonymise import scrub_mentions
 

@@ -54,7 +54,7 @@ def anonymise(cascades: list[dict]) -> list[dict]:
                   "profile": n["profile"]} for n in cascade["nodes"]]
         edges = [{"source": alias(e["source"]), "target": alias(e["target"]),
                   "kind": e.get("kind", "")} for e in cascade["edges"]]
-        out.append({
+        record = {
             "cascade_id": f"C{index:04d}",
             "query": cascade.get("query", ""),
             "text": scrub_mentions(cascade.get("text", "")),
@@ -66,7 +66,14 @@ def anonymise(cascades: list[dict]) -> list[dict]:
             "label": cascade.get("label"),
             "nodes": nodes,
             "edges": edges,
-        })
+        }
+        # where the label was read from the credibility of the linked outlet, the
+        # outlet and its rating travel with the record: they are the provenance of
+        # the label, and naming a publisher discloses nothing about a person
+        if cascade.get("source_domain"):
+            record["source_domain"] = cascade["source_domain"]
+            record["source_label"] = cascade.get("source_label", "")
+        out.append(record)
     return out
 
 
