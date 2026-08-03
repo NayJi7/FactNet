@@ -161,3 +161,43 @@ def test_anonymise_scrubs_handles_cited_inside_the_text():
     assert "did:plc:abc123" not in scrubbed
     assert scrubbed.startswith("As @account said")
     assert scrub_mentions("a plain claim about vaccines") == "a plain claim about vaccines"
+
+
+def test_slot_baseline_accounts_for_unequal_cascade_sizes(tmp_path):
+    """The baseline is the share of account slots, not the share of cascades."""
+    from factnet.graph.influence_veracity import account_labels, misleading_share
+
+    # one small misleading cascade against one large reliable one: the cascade
+    # counts are balanced, the places an account can occupy are not
+    cascades = [
+        {"label": 0, "nodes": [{"did": f"m{i}"} for i in range(2)] + [{"did": "both"}]},
+        {"label": 1, "nodes": [{"did": f"r{i}"} for i in range(8)] + [{"did": "both"}]},
+    ]
+    path = tmp_path / "cascades.jsonl"
+    path.write_text("\n".join(json.dumps(c) for c in cascades), encoding="utf-8")
+
+    per_account, misleading_slots, reliable_slots = account_labels(path)
+    assert (misleading_slots, reliable_slots) == (3, 9)
+    # a 50/50 split of cascades yields a 0.25 chance of sitting in the misleading one
+    assert misleading_slots / (misleading_slots + reliable_slots) == 0.25
+
+    assert misleading_share(per_account["both"]) == 0.5   # one of each
+    assert misleading_share(per_account["m0"]) == 1.0
+    assert misleading_share(per_account["r0"]) == 0.0
+
+
+def test_stratified_null_holds_activity_fixed():
+    """Shuffling inside equal-activity strata cannot invent an association."""
+    from factnet.graph.influence_veracity import stratified_null
+
+    # influence and share agree perfectly, but every account sits in one stratum
+    # of its own, so no shuffle is possible and the null can never beat it
+    influences = [0.1, 0.2, 0.3, 0.4]
+    shares = [0.0, 0.25, 0.5, 1.0]
+    observed, p = stratified_null(influences, shares, strata=[1, 2, 3, 4], rounds=50)
+    assert observed == pytest.approx(1.0)
+    assert p == pytest.approx(1.0)   # every permutation reproduces the observation
+
+    # pooled into a single stratum the shuffle is free and the effect must dissolve
+    _, p_free = stratified_null(influences, shares, strata=[1, 1, 1, 1], rounds=200)
+    assert p_free > 0.05
