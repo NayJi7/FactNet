@@ -1,0 +1,180 @@
+"""What the collected labels are actually predictable from.
+
+A detector trained on the collected cascades reaches macro-F1 0.773, which the
+project reads as evidence that cascade shape carries information about the
+credibility of the linked source. This module tests that reading against the
+two ways it could be wrong, and both turn out to matter.
+
+The first is size. The outlets on the reliable side are large established news
+organisations and those on the misleading side are marginal sites, so their
+audiences differ by an order of magnitude before anything propagates. If the
+label can be read off the number of accounts alone, the detector may be
+measuring the sample's construction rather than the phenomenon. A one-threshold
+rule is therefore fitted on the training half and reported beside the model.
+
+The second is memorisation. Accounts recur across cascades, so a split made
+cascade by cascade puts the same account on both sides and lets a model learn
+who rather than how. Splitting by source domain removes that, and asks the
+harder question at the same time: does this generalise to outlets never seen?
+
+Four conditions are crossed, so that each confound can be attributed:
+
+    uv run python -u -m factnet.graph.confound
+"""
+
+from __future__ import annotations
+
+import json
+import random
+import statistics as st
+from pathlib import Path
+
+import torch
+import torch.nn.functional as F
+from sklearn.metrics import f1_score
+from torch_geometric.loader import DataLoader
+
+from factnet.graph.models import BiGCN
+from factnet.ingestion.to_graph import cascade_to_pyg
+
+COLLECTED = (Path(__file__).resolve().parents[3] / "data" / "raw" / "bluesky"
+             / "cascades-by-source.jsonl")
+SEEDS = (0, 1, 2)
+DONE = "CONFOUND-COMPLETE"
+
+
+def load() -> list[dict]:
+    with COLLECTED.open(encoding="utf-8") as handle:
+        return [c for c in (json.loads(line) for line in handle if line.strip())
+                if c.get("label") is not None]
+
+
+def size_matched(rows: list[dict], tolerance: float = 0.25) -> list[dict]:
+    """Pair each misleading cascade with a reliable one of comparable size.
+
+    What remains is a sample in which the number of accounts carries no
+    information about the label, so any score above chance has to come from
+    something else.
+    """
+    smaller = sorted((len(r["nodes"]), i) for i, r in enumerate(rows) if r["label"] == 0)
+    larger = sorted((len(r["nodes"]), i) for i, r in enumerate(rows) if r["label"] == 1)
+    taken: set[int] = set()
+    keep: list[dict] = []
+    for size, index in smaller:
+        allowance = max(5.0, tolerance * size)
+        best = None
+        for other_size, other in larger:
+            if other in taken:
+                continue
+            distance = abs(size - other_size)
+            if best is None or distance < best[0]:
+                best = (distance, other)
+            if other_size > size + allowance:
+                break
+        if best and best[0] <= allowance:
+            taken.add(best[1])
+            keep += [rows[index], rows[best[1]]]
+    return keep
+
+
+def split_by_cascade(rows: list[dict], seed: int, fraction: float = 0.6):
+    generator = random.Random(seed)
+    train: list[dict] = []
+    test: list[dict] = []
+    for label in (0, 1):
+        subset = [r for r in rows if r["label"] == label]
+        generator.shuffle(subset)
+        cut = int(fraction * len(subset))
+        train += subset[:cut]
+        test += subset[cut:]
+    return train, test
+
+
+def split_by_domain(rows: list[dict], seed: int, fraction: float = 0.6):
+    """Hold out whole outlets, so no domain is on both sides of the split."""
+    generator = random.Random(seed)
+    train: list[dict] = []
+    test: list[dict] = []
+    for label in (0, 1):
+        domains = sorted({r.get("source_domain", "") for r in rows if r["label"] == label})
+        generator.shuffle(domains)
+        cut = max(1, int(fraction * len(domains)))
+        held = set(domains[:cut])
+        for row in rows:
+            if row["label"] != label:
+                continue
+            (train if row.get("source_domain", "") in held else test).append(row)
+    return train, test
+
+
+def size_rule(train: list[dict], test: list[dict]) -> float:
+    """The whole model: one threshold on the number of accounts."""
+    truth = [r["label"] for r in train]
+    sizes = [len(r["nodes"]) for r in train]
+    best = (-1.0, 1)
+    for threshold in range(1, max(sizes, default=2) + 1):
+        score = f1_score(truth, [int(s >= threshold) for s in sizes], average="macro")
+        if score > best[0]:
+            best = (score, threshold)
+    return f1_score([r["label"] for r in test],
+                    [int(len(r["nodes"]) >= best[1]) for r in test], average="macro")
+
+
+def detector(train: list[dict], test: list[dict], seed: int) -> float:
+    torch.manual_seed(seed)
+    graphs = [cascade_to_pyg(r) for r in train]
+    model = BiGCN(graphs[0].x.size(1), 64, 2)
+    optimiser = torch.optim.Adam(model.parameters(), lr=0.01, weight_decay=5e-4)
+    for _ in range(60):
+        model.train()
+        for batch in DataLoader(graphs, batch_size=64, shuffle=True):
+            optimiser.zero_grad()
+            F.cross_entropy(model(batch.x, batch.edge_index, batch.batch),
+                            batch.y).backward()
+            optimiser.step()
+
+    model.eval()
+    truth: list[int] = []
+    predicted: list[int] = []
+    with torch.no_grad():
+        for batch in DataLoader([cascade_to_pyg(r) for r in test], batch_size=128):
+            predicted += model(batch.x, batch.edge_index, batch.batch).argmax(dim=1).tolist()
+            truth += batch.y.tolist()
+    return f1_score(truth, predicted, average="macro")
+
+
+def main() -> None:
+    rows = load()
+    matched = size_matched(rows)
+    print(f"{len(rows)} labelled cascades, {len(matched)} after size matching "
+          f"({len(matched) // 2} pairs)\n", flush=True)
+
+    conditions = [
+        ("cascade split, all sizes", rows, split_by_cascade),
+        ("cascade split, size matched", matched, split_by_cascade),
+        ("domain split, all sizes", rows, split_by_domain),
+        ("domain split, size matched", matched, split_by_domain),
+    ]
+
+    print(f"  {'condition':<30s} {'size rule':>11s} {'Bi-GCN':>10s}", flush=True)
+    print("  " + "-" * 53, flush=True)
+    for name, data, splitter in conditions:
+        rule_scores, model_scores = [], []
+        for seed in SEEDS:
+            train, test = splitter(data, seed)
+            if not train or not test or len({r["label"] for r in train}) < 2:
+                continue
+            rule_scores.append(size_rule(train, test))
+            model_scores.append(detector(train, test, seed))
+        if not rule_scores:
+            print(f"  {name:<30s} {'n/a':>11s} {'n/a':>10s}", flush=True)
+            continue
+        print(f"  {name:<30s} {st.fmean(rule_scores):>11.3f} "
+              f"{st.fmean(model_scores):>10.3f}", flush=True)
+
+    print("\n  chance on a balanced binary task is 0.500", flush=True)
+    print(DONE, flush=True)
+
+
+if __name__ == "__main__":
+    main()
