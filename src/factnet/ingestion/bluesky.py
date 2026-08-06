@@ -65,7 +65,10 @@ class BlueskyClient:
             self.token = json.loads(response.read())["accessJwt"]
 
     def get(self, endpoint: str, **params: Any) -> dict:
-        url = f"{self.base}/{endpoint}?{urllib.parse.urlencode(params)}"
+        # doseq repeats a parameter given as a list (actors=a&actors=b), which is
+        # how the AT protocol takes plural arguments; without it a list would be
+        # serialised as its Python repr and the endpoint answers 400
+        url = f"{self.base}/{endpoint}?{urllib.parse.urlencode(params, doseq=True)}"
         headers = {"User-Agent": USER_AGENT}
         if self.token:
             headers["Authorization"] = f"Bearer {self.token}"
@@ -98,6 +101,16 @@ class BlueskyClient:
 
     def thread(self, uri: str, depth: int = 6) -> dict:
         return self.get("app.bsky.feed.getPostThread", uri=uri, depth=depth).get("thread", {})
+
+    # The views returned beside posts (ProfileView, ProfileViewBasic) carry no
+    # follower, following or post counters; only the detailed view does, and it
+    # is reachable solely through this endpoint, 25 accounts at a time.
+    PROFILE_BATCH = 25
+
+    def profiles(self, dids: list[str]) -> list[dict]:
+        """Detailed profiles, the only view carrying the account counters."""
+        return self.get("app.bsky.actor.getProfiles",
+                        actors=dids[:self.PROFILE_BATCH]).get("profiles", [])
 
 
 def _age_days(created_at: str | None) -> float:
