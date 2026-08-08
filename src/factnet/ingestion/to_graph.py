@@ -28,9 +28,20 @@ def read_cascades(path: str | Path) -> list[dict]:
         return [json.loads(line) for line in handle if line.strip()]
 
 
-def normalise_profile(profile: list[float]) -> list[float]:
-    """Scale raw account statistics into a comparable range."""
-    out = list(profile)
+BLANK_PROFILE = [0.0] * 10
+
+
+def normalise_profile(profile: list[float] | None) -> list[float]:
+    """Scale raw account statistics into a comparable range.
+
+    A node may arrive without a profile: a cascade pasted by hand carries a
+    topology and rarely the ten counters. The vector is then all zeros, which
+    the pipeline detects as constant features and answers by reading the shape
+    alone rather than by pretending to know the accounts.
+    """
+    out = list(profile) if profile else list(BLANK_PROFILE)
+    if len(out) != len(BLANK_PROFILE):
+        raise ValueError(f"a profile holds {len(BLANK_PROFILE)} numbers, got {len(out)}")
     for slot in COUNTER_SLOTS:
         out[slot] = math.log1p(max(0.0, out[slot])) / 15.0
     out[AGE_SLOT] = min(1.0, out[AGE_SLOT] / 3650.0)  # ten years saturates
@@ -48,7 +59,7 @@ def cascade_to_networkx(cascade: dict) -> Any:
     for node in cascade["nodes"]:
         graph.add_node(node["did"], handle=node.get("handle", ""),
                        kind=node.get("kind", ""),
-                       features=normalise_profile(node["profile"]))
+                       features=normalise_profile(node.get("profile")))
     for edge in cascade["edges"]:
         if edge["source"] in graph and edge["target"] in graph:
             graph.add_edge(edge["source"], edge["target"], kind=edge.get("kind", ""))
@@ -63,7 +74,7 @@ def cascade_to_pyg(cascade: dict) -> Any:
     nodes = cascade["nodes"]
     order = sorted(range(len(nodes)), key=lambda i: nodes[i].get("kind") != "source")
     index = {nodes[i]["did"]: rank for rank, i in enumerate(order)}
-    x = torch.tensor([normalise_profile(nodes[i]["profile"]) for i in order],
+    x = torch.tensor([normalise_profile(nodes[i].get("profile")) for i in order],
                      dtype=torch.float)
 
     pairs = [(index[e["source"]], index[e["target"]]) for e in cascade["edges"]

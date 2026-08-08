@@ -27,9 +27,17 @@ ROOT = str(Path(__file__).resolve().parents[3] / "data" / "raw" / "upfd")
 
 
 def attach_scores(dataset, scores) -> list[Data]:
-    """Append one feature column holding the story score on the root node."""
+    """Append one feature column holding the story score on the root node.
+
+    The two sequences are zipped strictly: a shorter score list would otherwise
+    truncate the dataset without a word, and the ablation would silently be
+    measured on a subset of the split it claims to cover.
+    """
+    scores = list(scores)
+    if len(scores) != len(dataset):
+        raise ValueError(f"{len(dataset)} graphs but {len(scores)} scores")
     out = []
-    for data, score in zip(dataset, scores, strict=False):
+    for data, score in zip(dataset, scores, strict=True):
         col = torch.zeros(data.num_nodes, 1)
         col[0, 0] = float(score)
         out.append(Data(x=torch.cat([data.x, col], dim=1),
