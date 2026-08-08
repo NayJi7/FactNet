@@ -95,6 +95,33 @@ def test_checkworthiness_separates_claims_from_chatter():
     assert explain(chatter)["opinion"] is True
 
 
+def test_a_quantity_can_be_asserted_without_a_digit():
+    """"The unemployment rate has doubled" is as checkable as any figure.
+
+    The first rule set scored it 0.25, below the floor, because it matched only
+    the attribution: no digit appeared, and the verbs of magnitude were absent
+    from the vocabulary. Both gaps are closed here, and the negatives must not
+    move with them.
+    """
+    from factnet.nlp.checkworthy import explain, score
+
+    claim = "The unemployment rate has doubled since last year, according to sources online."
+    assert score(claim) >= 0.3
+    fired = explain(claim)
+    assert fired["change"] and fired["measure"] and fired["attribution"]
+    assert not fired["quantity"]          # the point: no figure appears at all
+
+    for wording in ("Inflation fell for the third month running, the ministry said.",
+                    "Prices tripled after the agency approved the merger."):
+        assert score(wording) >= 0.3, wording
+
+    # personal talk, jokes and requests stay out whatever vocabulary was added
+    for chatter in ("I think this is really funny, guess I'll never understand people",
+                    "please someone tell me why my code does not compile, thanks",
+                    "Anyone else awake at this hour? I love this city, it is beautiful"):
+        assert score(chatter) < 0.3, chatter
+
+
 def test_checkworthiness_stays_in_range():
     from factnet.nlp.checkworthy import score
 

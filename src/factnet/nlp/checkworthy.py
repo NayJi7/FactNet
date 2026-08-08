@@ -11,8 +11,11 @@ check-worthiness corpus was collected for this project, and an explicit rule
 set can be read, argued with, and corrected, which a black box scoring the
 same items could not. It combines the surface markers that distinguish a
 verifiable assertion from talk about oneself: quantities and dates, attribution
-to a named source, institutional vocabulary, against first-person framing,
-questions, and pure opinion.
+to a named source, institutional vocabulary, named measurable quantities and
+verbs of magnitude, against first-person framing, questions, and pure opinion.
+The last two positives exist because a great many checkable assertions carry no
+digit at all: "the unemployment rate has doubled" states a quantity as plainly
+as any figure would.
 
 The filter is validated after the fact rather than assumed: the annotation tool
 records a skip whenever an item turns out not to be a checkable claim, so the
@@ -33,9 +36,23 @@ ATTRIBUTION = re.compile(r"\b(says?|said|claims?|claimed|announced?|reported?|ac
                          r"admits?|denies|confirmed?|warns?|told)\b", re.I)
 INSTITUTION = re.compile(r"\b(gov(ernment)?|senate|congress|court|ministry|agency|study|studies|"
                          r"research(ers)?|report|data|cdc|fda|who|nasa|university|police|"
-                         r"official|president|minister|senator|department)\b", re.I)
+                         r"official|president|minister|senator|department|white house|"
+                         r"parliament|commission|bureau|institute|hospital|regulator)\b", re.I)
 CHANGE = re.compile(r"\b(banned?|approved?|passed?|signed?|cut|raised?|increased?|decreased?|"
-                    r"caused?|killed?|linked to|proves?|shows?|found)\b", re.I)
+                    r"caused?|killed?|linked to|proves?|shows?|found|"
+                    # magnitude verbs: a quantity can be asserted without a digit,
+                    # and "has doubled" is as checkable as "rose by 100 %"
+                    r"doubled?|tripled?|quadrupled?|halved?|rose|risen|fell|fallen|"
+                    r"dropped?|surged?|plunged?|soared?|jumped?|spiked?|plummeted?|"
+                    r"grew|grown|shrank|shrunk|declined?|climbed?|overtook|exceeded?)\b", re.I)
+
+# A named measurable quantity, which makes a sentence checkable even when it
+# carries no figure. Kept to things a statistics office publishes, so that it
+# does not fire on ordinary description.
+MEASURE = re.compile(r"\b(rate|rates|percentage|average|median|unemployment|inflation|"
+                     r"gdp|deficit|surplus|turnout|census|poll|polls|survey|statistics|"
+                     r"death toll|cases|deaths|births|population|prices?|costs?|wages?|"
+                     r"salaries|salary|temperature|emissions|revenue|budget)\b", re.I)
 
 # talk about oneself, questions and pure opinion are not claims to verify
 FIRST_PERSON = re.compile(r"\b(i|i'm|i've|my|me|myself|we're|folks)\b", re.I)
@@ -51,7 +68,8 @@ def score(text: str) -> float:
         return 0.0
 
     positive = sum(weight for pattern, weight in (
-        (QUANTITY, 0.30), (ATTRIBUTION, 0.25), (INSTITUTION, 0.25), (CHANGE, 0.20))
+        (QUANTITY, 0.30), (ATTRIBUTION, 0.25), (INSTITUTION, 0.25),
+        (CHANGE, 0.20), (MEASURE, 0.20))
         if pattern.search(stripped))
     penalty = sum(weight for pattern, weight in (
         (FIRST_PERSON, 0.25), (OPINION, 0.20), (QUESTION, 0.15))
@@ -68,6 +86,7 @@ def explain(text: str) -> dict[str, bool]:
             "attribution": bool(ATTRIBUTION.search(text or "")),
             "institution": bool(INSTITUTION.search(text or "")),
             "change": bool(CHANGE.search(text or "")),
+            "measure": bool(MEASURE.search(text or "")),
             "first_person": bool(FIRST_PERSON.search(text or "")),
             "opinion": bool(OPINION.search(text or "")),
             "question": bool(QUESTION.search(text or ""))}
