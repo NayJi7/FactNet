@@ -56,7 +56,9 @@ export default function App() {
     });
 
   return (
-    <div className="relative min-h-screen overflow-x-hidden">
+    // a column so the footer sits at the bottom of the window when the page is
+    // shorter than it, instead of floating halfway up with dead space beneath
+    <div className="relative flex min-h-screen flex-col overflow-x-hidden">
       {/* the mark, ambient rather than applied: fixed, barely there, and set a
           little off square so it reads as a watermark and not as a stamp */}
       <div aria-hidden
@@ -112,7 +114,7 @@ export default function App() {
         </div>
       </header>
 
-      <main className="mx-auto max-w-[1180px] px-8 py-10">
+      <main className="mx-auto w-full max-w-[1180px] flex-1 px-8 py-10">
         {tab === "cascades" && (
         <Cascades models={models} busy={busy} trace={trace}
                   onChange={() => { setTrace(null); setError(""); }}
