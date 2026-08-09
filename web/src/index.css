@@ -1,0 +1,100 @@
+@import "@fontsource-variable/ibm-plex-sans";
+@import "@fontsource/ibm-plex-mono/400.css";
+@import "@fontsource/ibm-plex-mono/500.css";
+@import "tailwindcss";
+
+@theme {
+  --font-sans: "IBM Plex Sans Variable", ui-sans-serif, system-ui, sans-serif;
+  --font-mono: "IBM Plex Mono", ui-monospace, monospace;
+
+  /* Ground: engineering paper, cool with a green cast. Never white. */
+  --color-paper:      oklch(0.977 0.004 170);
+  --color-panel:      oklch(0.995 0.002 170);
+  --color-sunk:       oklch(0.955 0.006 175);
+
+  /* Ink: desaturated indigo. Never black. */
+  --color-ink:        oklch(0.28  0.035 265);
+  --color-ink-soft:   oklch(0.47  0.025 262);
+  --color-ink-faint:  oklch(0.63  0.018 258);
+
+  --color-rule:       oklch(0.905 0.008 200);
+  --color-rule-firm:  oklch(0.845 0.012 205);
+
+  /* The measurement accent. Amber carries the unreliable side of every axis.
+     Green and red are deliberately absent: this reports a distance from a
+     boundary, not a ruling. */
+  --color-signal:     oklch(0.705 0.145 62);
+  --color-signal-dim: oklch(0.93  0.045 72);
+
+  /* The structural signal, distinct from content without becoming a second
+     semantic colour. */
+  --color-struct:     oklch(0.53  0.075 212);
+  --color-struct-dim: oklch(0.93  0.028 208);
+
+  --ease-out-quint: cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+@layer base {
+  html { scroll-behavior: smooth; }
+
+  body {
+    background-color: var(--color-paper);
+    color: var(--color-ink);
+    -webkit-font-smoothing: antialiased;
+    font-feature-settings: "cv05" 1, "ss03" 1;
+
+    /* Engineering paper, at the edge of visibility. The metaphor the whole
+       palette rests on, made literal: a surface you take measurements on.
+       Any stronger and it would be wallpaper. */
+    background-image:
+      linear-gradient(to right,  oklch(0.60 0.03 200 / 0.045) 1px, transparent 1px),
+      linear-gradient(to bottom, oklch(0.60 0.03 200 / 0.045) 1px, transparent 1px);
+    background-size: 28px 28px;
+    background-attachment: fixed;
+  }
+
+  /* Every figure in this interface is read as a number before it is read as a
+     shape, so digits align on the column across the whole surface. */
+  .tnum { font-variant-numeric: tabular-nums; }
+
+  ::selection { background: var(--color-signal-dim); }
+
+  :focus-visible {
+    outline: 2px solid var(--color-struct);
+    outline-offset: 2px;
+    border-radius: 2px;
+  }
+}
+
+@layer components {
+  /* The eyebrow: small, wide, quiet. Used for one thing only, naming a region. */
+  .eyebrow {
+    font-size: 0.6875rem;
+    letter-spacing: 0.13em;
+    text-transform: uppercase;
+    color: var(--color-ink-faint);
+    font-weight: 500;
+  }
+}
+
+/* the indeterminate sweep: it says "working", never "this far along" */
+@keyframes sweep {
+  0%   { transform: translateX(-100%); }
+  100% { transform: translateX(300%); }
+}
+
+@keyframes settle {
+  from { opacity: 0; transform: translateY(6px); }
+  to   { opacity: 1; transform: none; }
+}
+.settle { animation: settle 260ms var(--ease-out-quint) both; }
+
+@media (prefers-reduced-motion: reduce) {
+  .settle { animation: none; }
+  [aria-busy="true"] * { animation: none !important; }
+  html { scroll-behavior: auto; }
+  *, *::before, *::after {
+    animation-duration: 1ms !important;
+    transition-duration: 1ms !important;
+  }
+}
