@@ -207,3 +207,37 @@ def test_a_pasted_cascade_without_profiles_is_read_on_its_shape():
     assert "structure" in steps
     assert steps["structure"]["detail"]["model_key"] == "bigcn-structure"
     assert any("features are constant" in w for w in trace["warnings"])
+
+
+def test_the_stream_sends_each_stage_as_it_lands():
+    """The streamed reading must carry the same stages as the plain one.
+
+    A viewer waits several seconds for a verdict, and the engine produces its
+    stages in order, so they are forwarded rather than withheld. The two
+    endpoints must not drift apart: whatever one reports, the other reports.
+    """
+    client = api_client()
+    payload = {"text": "The unemployment rate has doubled, the ministry said."}
+
+    with client.stream("POST", "/api/verdict/stream", json=payload) as response:
+        assert response.status_code == 200
+        assert response.headers["content-type"].startswith("text/event-stream")
+        body = "".join(response.iter_text())
+
+    events, data = [], []
+    for frame in body.split("\n\n"):
+        for line in frame.splitlines():
+            if line.startswith("event: "):
+                events.append(line[7:])
+            elif line.startswith("data: "):
+                data.append(json.loads(line[6:]))
+
+    assert events[-1] == "done"
+    streamed = [d["key"] for e, d in zip(events, data, strict=True) if e == "step"]
+    assert streamed, "no stage was streamed"
+    assert "verdict" in streamed
+
+    plain = client.post("/api/verdict", json=payload).json()
+    assert [s["key"] for s in plain["steps"]] == streamed
+    assert data[-1]["label"] == plain["label"]
+    assert "steps" not in data[-1]        # the summary does not repeat them

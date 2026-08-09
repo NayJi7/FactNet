@@ -231,9 +231,12 @@ CORPUS_FOR = {"bluesky": "bluesky", "cascade": "bluesky", "url": "bluesky",
 
 def run(text: str = "", cascade: dict | None = None, data=None,
         content_model: str | None = None, origin: str = "text",
-        corpus: str | None = None, graph_model: str | None = None) -> Trace:
+        corpus: str | None = None, graph_model: str | None = None,
+        on_step=None) -> Trace:
     """The whole system on one input, with every stage recorded."""
     trace = Trace(input_kind=origin)
+    if on_step is not None:
+        trace.listen(on_step)
     corpus = corpus or CORPUS_FOR.get(origin, "politifact")
     handles = None
     if cascade is not None:

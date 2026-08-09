@@ -64,8 +64,19 @@ class Trace:
     provenance: dict[str, Any] = field(default_factory=dict)
     warnings: list[str] = field(default_factory=list)
 
+    def listen(self, callback) -> None:
+        """Be told about each stage as it lands, for streaming to a browser.
+
+        The listener is a plain attribute rather than a field so that it never
+        reaches ``to_dict``: a callable has no place in a JSON payload.
+        """
+        object.__setattr__(self, "_listener", callback)
+
     def add(self, step: Step) -> Step:
         self.steps.append(step)
+        listener = getattr(self, "_listener", None)
+        if listener is not None:
+            listener(step)
         return step
 
     def warn(self, message: str) -> None:
@@ -74,6 +85,12 @@ class Trace:
 
     def to_dict(self) -> dict[str, Any]:
         return asdict(self)
+
+    def summary(self) -> dict[str, Any]:
+        """Everything but the stages, for the end of a stream that already sent them."""
+        payload = asdict(self)
+        payload.pop("steps")
+        return payload
 
 
 def confidence_from(probability: float, accounts: int = 0, has_features: bool = True) -> str:

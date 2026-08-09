@@ -1,4 +1,4 @@
-import type { ModelCard, Sample, SampleDetail, Trace } from "./types";
+import type { ModelCard, Sample, SampleDetail, Step, Trace } from "./types";
 
 async function call<T>(path: string, body?: unknown): Promise<T> {
   const response = await fetch(`/api${path}`, {
@@ -33,3 +33,53 @@ export const getVerdict = (payload: {
 
 export const fetchCascade = (url: string) =>
   call<{ cascade: Record<string, any> }>("/fetch", { url });
+
+/**
+ * The same reading, consumed stage by stage.
+ *
+ * EventSource cannot POST, so the stream is read off the fetch body directly.
+ * Frames are `event: name` then `data: json`, separated by a blank line, and a
+ * chunk can split one in half: whatever follows the last blank line is held
+ * back until the rest of it arrives.
+ */
+export async function streamVerdict(
+  payload: Record<string, unknown>,
+  onStep: (step: Step) => void,
+): Promise<Trace> {
+  const response = await fetch("/api/verdict/stream", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(payload),
+  });
+  if (!response.ok || !response.body) {
+    const detail = await response.json().catch(() => null);
+    throw new Error(detail?.detail ?? `request failed (${response.status})`);
+  }
+
+  const reader = response.body.getReader();
+  const decoder = new TextDecoder();
+  const steps: Step[] = [];
+  let buffer = "";
+  let summary: Omit<Trace, "steps"> | null = null;
+  let failure: string | null = null;
+
+  for (;;) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    buffer += decoder.decode(value, { stream: true });
+    const frames = buffer.split("\n\n");
+    buffer = frames.pop() ?? "";
+    for (const frame of frames) {
+      const name = /^event: (.+)$/m.exec(frame)?.[1];
+      const body = /^data: (.+)$/m.exec(frame)?.[1];
+      if (!name || !body) continue;
+      const parsed = JSON.parse(body);
+      if (name === "step") { steps.push(parsed); onStep(parsed); }
+      else if (name === "done") summary = parsed;
+      else if (name === "failed") failure = parsed.detail;
+    }
+  }
+  if (failure) throw new Error(failure);
+  if (!summary) throw new Error("the reading ended before it produced a verdict");
+  return { ...summary, steps } as Trace;
+}

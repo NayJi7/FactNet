@@ -9,8 +9,8 @@ import MeasureRail from "./components/MeasureRail";
 import Results from "./components/Results";
 import StepList from "./components/StepList";
 import Verdict from "./components/Verdict";
-import { fetchCascade, getModels, getVerdict } from "./lib/api";
-import type { ModelCard, Trace } from "./lib/types";
+import { fetchCascade, getModels, streamVerdict } from "./lib/api";
+import type { ModelCard, Step, Trace } from "./lib/types";
 
 type Tab = "verdict" | "cascades" | "data" | "results";
 const TABS: Record<Tab, string> = {
@@ -25,6 +25,7 @@ export default function App() {
   const [graphModels, setGraphModels] = useState<ModelCard[]>([]);
   const [trace, setTrace] = useState<Trace | null>(null);
   const [busy, setBusy] = useState(false);
+  const [arriving, setArriving] = useState<Step[]>([]);
   const [error, setError] = useState("");
   const [tab, setTab] = useState<Tab>("verdict");
   const [corpus, setCorpus] = useState<{ cascades: number; accounts: number } | null>(null);
@@ -43,16 +44,19 @@ export default function App() {
   const guard = async (work: () => Promise<Trace>) => {
     setBusy(true);
     setError("");
+    setArriving([]);
     try { setTrace(await work()); }
     catch (e) { setError((e as Error).message); setTrace(null); }
-    finally { setBusy(false); }
+    finally { setBusy(false); setArriving([]); }
   };
 
-  const run = (payload: any) => guard(() => getVerdict(payload));
+  const run = (payload: any) =>
+    guard(() => streamVerdict(payload, (s) => setArriving((all) => [...all, s])));
   const fromUrl = (url: string) =>
     guard(async () => {
       const { cascade } = await fetchCascade(url);
-      return getVerdict({ cascade, origin: "bluesky" });
+      return streamVerdict({ cascade, origin: "bluesky" },
+                           (s) => setArriving((all) => [...all, s]));
     });
 
   return (
@@ -116,7 +120,7 @@ export default function App() {
 
       <main className="mx-auto w-full max-w-[1180px] flex-1 px-8 py-10">
         {tab === "cascades" && (
-        <Cascades models={models} busy={busy} trace={trace}
+        <Cascades models={models} busy={busy} trace={trace} arriving={arriving}
                   onChange={() => { setTrace(null); setError(""); }}
                   onAnalyse={(id, model) => run({ sample_id: id, model })} />
       )}
@@ -140,7 +144,7 @@ export default function App() {
                     {error}
                   </p>
                 )}
-                {busy && <Pending withCascade={false} />}
+                {busy && <Pending withCascade={false} done={arriving} />}
                 {!busy && !trace && !error && <Specimen />}
                 {!busy && trace && (
                   <>

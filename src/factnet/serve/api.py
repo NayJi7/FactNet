@@ -9,11 +9,17 @@ shows and what ``pytest`` checks are the same computation.
 
 from __future__ import annotations
 
+import json
+import queue
 import re
+import threading
+from collections.abc import Iterator
+from dataclasses import asdict
 from typing import Any
 
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, Field
 
 from factnet.serve import datasets as datasets_module
@@ -66,8 +72,8 @@ def sample_detail(index: int) -> dict[str, Any]:
     return found
 
 
-@app.post("/api/verdict")
-def verdict(request: VerdictRequest) -> dict[str, Any]:
+def _resolve(request: VerdictRequest) -> tuple[dict[str, Any] | None, str]:
+    """Validate a request and settle what is being read, for either endpoint."""
     cascade = request.cascade
     origin = request.origin
 
@@ -93,10 +99,54 @@ def verdict(request: VerdictRequest) -> dict[str, Any]:
             raise HTTPException(
                 422, f"unknown {kind} model {value!r}; ask /api/models for the list")
 
+    return cascade, origin
+
+
+@app.post("/api/verdict")
+def verdict(request: VerdictRequest) -> dict[str, Any]:
+    cascade, origin = _resolve(request)
     trace = run(text=request.text, cascade=cascade,
                 content_model=request.model, graph_model=request.graph_model,
                 origin=origin)
     return trace.to_dict()
+
+
+@app.post("/api/verdict/stream")
+def verdict_stream(request: VerdictRequest) -> StreamingResponse:
+    """The same reading, sent stage by stage as each one lands.
+
+    A run takes seconds and produces its stages in order, so there is no reason
+    to withhold them until the last one finishes. The engine is unchanged: it
+    reports each stage to a listener, and this endpoint forwards them.
+    """
+    cascade, origin = _resolve(request)
+
+    events: queue.Queue = queue.Queue()
+
+    def work() -> None:
+        try:
+            trace = run(text=request.text, cascade=cascade,
+                        content_model=request.model, graph_model=request.graph_model,
+                        origin=origin, on_step=lambda s: events.put(("step", asdict(s))))
+            events.put(("done", trace.summary()))
+        except Exception as error:                       # reported, never swallowed
+            events.put(("failed", {"detail": f"{type(error).__name__}: {error}"}))
+        finally:
+            events.put(None)
+
+    threading.Thread(target=work, daemon=True).start()
+
+    def frames() -> Iterator[str]:
+        while True:
+            item = events.get()
+            if item is None:
+                return
+            name, payload = item
+            yield f"event: {name}\ndata: {json.dumps(payload)}\n\n"
+
+    return StreamingResponse(frames(), media_type="text/event-stream",
+                             headers={"Cache-Control": "no-cache",
+                                      "X-Accel-Buffering": "no"})
 
 
 def validate_cascade(cascade: dict) -> str | None:

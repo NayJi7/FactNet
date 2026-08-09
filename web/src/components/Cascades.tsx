@@ -5,7 +5,7 @@ import StepList from "./StepList";
 import Verdict from "./Verdict";
 import { getSampleDetail, getSamples } from "../lib/api";
 import { Account } from "../lib/handle";
-import type { Figure, ModelCard, Sample, SampleDetail, Trace } from "../lib/types";
+import type { Figure, ModelCard, Sample, SampleDetail, Step, Trace } from "../lib/types";
 
 /**
  * What a cascade actually is, before any model is asked about it.
@@ -26,12 +26,13 @@ function Field({ label, value }: { label: string; value: React.ReactNode }) {
 }
 
 export default function Cascades({
-  models, onAnalyse, busy, trace, onChange,
+  models, onAnalyse, busy, trace, arriving, onChange,
 }: {
   models: ModelCard[];
   onAnalyse: (id: number, model: string) => void;
   busy: boolean;
   trace: Trace | null;
+  arriving: Step[];
   onChange: () => void;
 }) {
   const [list, setList] = useState<Sample[]>([]);
@@ -137,7 +138,7 @@ export default function Cascades({
 
           {busy && (
             <section className="border-b border-rule-firm py-7">
-              <Pending withCascade />
+              <Pending withCascade done={arriving} />
             </section>
           )}
 
