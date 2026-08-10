@@ -114,6 +114,25 @@ TABLES: list[dict[str, Any]] = [
                    "training from scratch climbs past 0.75. The gap holds near 0.30 "
                    "at every budget instead of closing.",
     },
+    {
+        "key": "confound",
+        "title": "What the collected labels are predictable from",
+        "unit": "macro-F1",
+        "columns": ["Condition", "One size threshold", "Bi-GCN"],
+        "rows": [
+            ["Split by cascade, all sizes", 0.902, 0.767],
+            ["Split by domain, all sizes", 0.912, 0.720],
+            ["Split by cascade, size matched", 0.504, 0.640],
+            ["Split by domain, size matched", 0.309, 0.517],
+        ],
+        "best": None,
+        "reading": "A rule with one parameter beats the detector: the credible "
+                   "outlets we picked simply have larger audiences. Matching the "
+                   "sizes away drops the rule to chance and leaves the detector "
+                   "at 0.640, so a real but much smaller structural signal "
+                   "survives. The last row rests on thirty to fifty test "
+                   "cascades and is shown for completeness.",
+    },
 ]
 
 HEADLINES = [
