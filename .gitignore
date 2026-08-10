@@ -27,7 +27,7 @@ models/*
 # Notebooks
 .ipynb_checkpoints/
 
-# LaTeX build intermediates (keep .tex, .bib and committed .pdf)
+# LaTeX build intermediates (only the compiled .pdf is committed)
 *.aux
 *.log
 *.out
