@@ -35,6 +35,9 @@ export default function App() {
   const [error, setError] = useState("");
   const [tab, setTab] = useState<Tab>("verdict");
   const [corpus, setCorpus] = useState<{ cascades: number; accounts: number } | null>(null);
+  // whether the run under way will produce structural stages, so the skeleton
+  // names the six that are coming rather than the three a bare text would give
+  const [expectCascade, setExpectCascade] = useState(false);
 
   useEffect(() => {
     getModels()
@@ -47,23 +50,26 @@ export default function App() {
       .catch(() => {});
   }, []);
 
-  const guard = async (work: () => Promise<Trace>) => {
+  const guard = async (work: () => Promise<Trace>, cascade = false) => {
     setBusy(true);
     setError("");
     setArriving([]);
+    setExpectCascade(cascade);
     try { setTrace(await work()); }
     catch (e) { setError((e as Error).message); setTrace(null); }
     finally { setBusy(false); setArriving([]); }
   };
 
   const run = (payload: any) =>
-    guard(() => streamVerdict(payload, (s) => setArriving((all) => [...all, s])));
+    guard(() => streamVerdict(payload, (s) => setArriving((all) => [...all, s])),
+          // sample_id can be 0, so its presence is what counts, not its truth
+          Boolean(payload.cascade) || payload.sample_id !== undefined);
   const fromUrl = (url: string) =>
     guard(async () => {
       const { cascade } = await fetchCascade(url);
       return streamVerdict({ cascade, origin: "bluesky" },
                            (s) => setArriving((all) => [...all, s]));
-    });
+    }, true);
 
   return (
     // a column so the footer sits at the bottom of the window when the page is
@@ -154,7 +160,7 @@ export default function App() {
                   {error}
                 </p>
               )}
-              {busy && <Pending withCascade={false} done={arriving} />}
+              {busy && <Pending withCascade={expectCascade} done={arriving} />}
               {!busy && !trace && !error && <Specimen />}
               {!busy && trace && (
                 <>
