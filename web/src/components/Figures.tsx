@@ -27,7 +27,8 @@ function Tokens({ data }: { data: Figure["data"] }) {
   const tokens: [string, number][] = data.tokens ?? [];
   const signed = Boolean(data.signed);
   return (
-    <p className="max-w-[68ch] font-mono text-[13px] leading-[2.1]">
+    // no ch cap: set two abreast, the column is already the measure
+    <p className="font-mono text-[13px] leading-[2.1]">
       {tokens.map(([token, weight], i) => {
         const m = Math.min(1, Math.abs(weight));
         const colour = signed ? (weight >= 0 ? STRUCT : SIGNAL) : INK_SOFT;
@@ -107,7 +108,7 @@ function Cascade({ data }: { data: Figure["data"] }) {
   const box = useRef<HTMLDivElement>(null);
   const graphRef = useRef<any>(null);
   const [width, setWidth] = useState(0);
-  const HEIGHT = 460;
+  const HEIGHT = 520;
 
   const allLevels: { depth: number; accounts: number }[] = data.levels ?? [];
   const maxHop = allLevels.length ? allLevels[allLevels.length - 1].depth : 0;
@@ -260,6 +261,10 @@ function Cascade({ data }: { data: Figure["data"] }) {
         </div>
       </div>
 
+      {/* The layout is a disc, so a wide short box wastes its corners whatever
+          the zoom. Narrowing the canvas and standing the legend beside it uses
+          the row instead, and buys the disc more height at the same time. */}
+      <div className="xl:grid xl:grid-cols-[minmax(0,1fr)_248px] xl:gap-7">
       <div ref={box} className="overflow-hidden border border-rule bg-panel"
            style={{ height: HEIGHT }}>
         {width > 0 && (
@@ -288,22 +293,24 @@ function Cascade({ data }: { data: Figure["data"] }) {
         )}
       </div>
 
-      <div className="mt-3 flex flex-wrap items-start justify-between gap-x-8 gap-y-2">
-        <div className="flex flex-wrap items-center gap-x-5 gap-y-2">
+      <div className="mt-3 flex flex-wrap items-start justify-between gap-x-8 gap-y-3
+                      xl:mt-0 xl:flex-col xl:flex-nowrap xl:justify-start xl:gap-y-6">
+        <div className="flex flex-wrap items-center gap-x-5 gap-y-2 xl:flex-col xl:items-start xl:gap-y-2">
           {shownLevels.map(([depth, accounts]) => (
-            <span key={depth} className="flex items-center gap-1.5 text-[12px]">
-              <span className="inline-block h-2.5 w-2.5 rounded-full"
+            <span key={depth} className="flex items-center gap-1.5 text-[12px] xl:w-full">
+              <span className="inline-block h-2.5 w-2.5 shrink-0 rounded-full"
                     style={{ background: shade(depth) }} aria-hidden />
               <span className="text-ink-soft">
                 {depth === 0 ? "the source" : `${depth} hop${depth > 1 ? "s" : ""}`}
               </span>
-              <span className="tnum font-mono text-ink-faint">{accounts}</span>
+              <span className="tnum font-mono text-ink-faint xl:ml-auto">{accounts}</span>
             </span>
           ))}
         </div>
-        <div className="flex flex-wrap items-center gap-x-6 gap-y-1 text-[12px] text-ink-faint">
+        <div className="flex flex-wrap items-center gap-x-6 gap-y-1 text-[12px] text-ink-faint
+                        xl:flex-col xl:items-start xl:gap-y-2">
           {biggest.length > 0 && (
-            <span className="flex flex-wrap items-center gap-x-3">
+            <span className="flex flex-wrap items-center gap-x-3 xl:flex-col xl:items-start xl:gap-y-1">
               <span>largest audiences here:</span>
               {biggest.map((n: any) => (
                 <span key={n.id} className="whitespace-nowrap">
@@ -320,6 +327,7 @@ function Cascade({ data }: { data: Figure["data"] }) {
             <span className="tnum font-mono">{mix.replies}</span> replies shown
           </span>
         </div>
+      </div>
       </div>
     </div>
   );

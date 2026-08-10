@@ -20,6 +20,12 @@ const TABS: Record<Tab, string> = {
   results: "What we measured",
 };
 
+// One measure for the whole page. It gains enough on a large display to stand
+// two figures abreast, and no more: past that the paragraphs, which cap
+// themselves in ch, sit in a widening pool of white and the page reads emptier
+// than the narrow version it replaced.
+const SHELL = "mx-auto w-full max-w-[1180px] xl:max-w-[1340px]";
+
 export default function App() {
   const [models, setModels] = useState<ModelCard[]>([]);
   const [graphModels, setGraphModels] = useState<ModelCard[]>([]);
@@ -72,7 +78,7 @@ export default function App() {
              style={{ transform: "rotate(-6.5deg)" }} />
       </div>
       <header className="border-b border-rule-firm bg-panel">
-        <div className="mx-auto flex max-w-[1180px] flex-wrap items-end justify-between gap-x-10 gap-y-5 px-8 pb-6 pt-7">
+        <div className={`${SHELL} flex flex-wrap items-end justify-between gap-x-10 gap-y-5 px-8 pb-6 pt-7`}>
           <div className="flex items-center gap-4">
             <img src="/logos/logo.png" alt="" aria-hidden
                  className="h-[52px] w-[52px] shrink-0 object-contain" />
@@ -101,7 +107,7 @@ export default function App() {
             ))}
           </dl>
         </div>
-        <div className="mx-auto max-w-[1180px] px-8">
+        <div className={`${SHELL} px-8`}>
           <nav className="flex gap-7 border-t border-rule pt-3">
             {(Object.keys(TABS) as Tab[]).map((name) => (
               <button key={name}
@@ -118,7 +124,7 @@ export default function App() {
         </div>
       </header>
 
-      <main className="mx-auto w-full max-w-[1180px] flex-1 px-8 py-10">
+      <main className={`${SHELL} flex-1 px-8 py-10`}>
         {tab === "cascades" && (
         <Cascades models={models} busy={busy} trace={trace} arriving={arriving}
                   onChange={() => { setTrace(null); setError(""); }}
@@ -129,37 +135,40 @@ export default function App() {
 
         {tab === "verdict" && (
           <div className="lg:grid lg:grid-cols-[336px_1fr] lg:gap-12">
+            {/* input and readings share one sticky column. The rail used to sit
+                in a third column of its own, which cost width on the right and
+                left a tall empty strip on the left once the panel was scrolled
+                past. Stacked, the column stays occupied and the reading gets
+                everything else. */}
             <div className="lg:sticky lg:top-8 lg:self-start">
               {models.length > 0 && (
                 <InputPanel models={models} graphModels={graphModels}
                             busy={busy} onRun={run} onFetch={fromUrl} />
               )}
+              {trace && <MeasureRail trace={trace} />}
             </div>
 
-            <div className="mt-10 flex gap-8 lg:mt-0">
-              {trace && <MeasureRail trace={trace} />}
-              <div className="min-w-0 max-w-[780px] flex-1">
-                {error && (
-                  <p className="border border-signal/40 bg-signal-dim/40 px-4 py-3 text-[13px]">
-                    {error}
-                  </p>
-                )}
-                {busy && <Pending withCascade={false} done={arriving} />}
-                {!busy && !trace && !error && <Specimen />}
-                {!busy && trace && (
-                  <>
-                    <Verdict trace={trace} />
-                    <StepList steps={trace.steps} />
-                  </>
-                )}
-              </div>
+            <div className="mt-10 min-w-0 lg:mt-0">
+              {error && (
+                <p className="border border-signal/40 bg-signal-dim/40 px-4 py-3 text-[13px]">
+                  {error}
+                </p>
+              )}
+              {busy && <Pending withCascade={false} done={arriving} />}
+              {!busy && !trace && !error && <Specimen />}
+              {!busy && trace && (
+                <>
+                  <Verdict trace={trace} />
+                  <StepList steps={trace.steps} />
+                </>
+              )}
             </div>
           </div>
         )}
       </main>
 
       <footer className="mt-8 border-t border-rule-firm bg-panel">
-        <div className="mx-auto flex max-w-[1180px] flex-wrap items-center justify-between gap-x-12 gap-y-7 px-8 py-8">
+        <div className={`${SHELL} flex flex-wrap items-center justify-between gap-x-12 gap-y-7 px-8 py-8`}>
           <div className="flex flex-wrap items-center gap-x-10 gap-y-6">
             {/* the lockup carries its own wordmark, so no label accompanies it */}
             <img src="/logos/logo-txt.png" alt="FactNet"

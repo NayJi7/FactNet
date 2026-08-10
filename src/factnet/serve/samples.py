@@ -54,7 +54,7 @@ def detail(index: int) -> dict | None:
     cascade = loaded[index]
 
     from factnet.ingestion.to_graph import cascade_to_pyg
-    from factnet.serve.structure import depths, graph_figure, shape
+    from factnet.serve.structure import depths, edge_kinds, graph_figure, node_followers, shape
 
     data = cascade_to_pyg(cascade)
     nodes = cascade["nodes"]
@@ -71,8 +71,8 @@ def detail(index: int) -> dict | None:
                "posts": int(nodes[order[i]].get("profile", [0] * 10)[5])}
               for i in range(min(len(order), 40))]
 
-    figure = graph_figure(data, handles, _edge_kinds(cascade),
-                          [int(nodes[i].get("profile", [0] * 10)[2]) for i in order])
+    figure = graph_figure(data, handles, edge_kinds(cascade),
+                          node_followers(cascade, order))
     return {
         "id": index,
         "uri": cascade.get("uri", ""),
@@ -95,11 +95,6 @@ def detail(index: int) -> dict | None:
     }
 
 
-def _edge_kinds(cascade: dict) -> list[str]:
-    """Edge kinds in the order ``cascade_to_pyg`` keeps them."""
-    index = {n["did"]: True for n in cascade["nodes"]}
-    return [e.get("kind", "repost") for e in cascade["edges"]
-            if e["source"] in index and e["target"] in index]
 
 
 def _web_url(uri: str, handle: str) -> str:

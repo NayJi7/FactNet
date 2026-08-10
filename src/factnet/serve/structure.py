@@ -163,6 +163,24 @@ def shape_figure(measured: dict[str, float], corpus: str = "politifact") -> Figu
                 "detector was trained on.")
 
 
+def edge_kinds(cascade: dict) -> list[str]:
+    """Edge kinds in the order ``cascade_to_pyg`` keeps them.
+
+    Every caller that draws a collected cascade needs these. Without them the
+    picture defaults every edge to a repost, which reports no replies at all and
+    contradicts the composition this project measured.
+    """
+    index = {n["did"]: True for n in cascade["nodes"]}
+    return [e.get("kind", "repost") for e in cascade["edges"]
+            if e["source"] in index and e["target"] in index]
+
+
+def node_followers(cascade: dict, order: list[int]) -> list[int]:
+    """Follower counts in node order; slot 2 of the profile vector."""
+    nodes = cascade["nodes"]
+    return [int((nodes[i].get("profile") or [0] * 10)[2]) for i in order]
+
+
 def graph_figure(data: Data, handles: list[str] | None = None,
                  kinds: list[str] | None = None,
                  followers: list[int] | None = None) -> Figure:

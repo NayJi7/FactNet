@@ -91,7 +91,19 @@ export default function StepList({ steps }: { steps: Step[] }) {
                       {step.note}
                     </p>
                   )}
-                  {step.figures.map((figure, i) => <FigureView key={i} figure={figure} />)}
+                  {/* Two abreast once there is room. Attention beside occlusion
+                      is also the comparison the pair exists to invite, so this
+                      shortens the page and sharpens the point at once. A graph
+                      or a curve keeps the full measure. */}
+                  <div className="grid gap-x-10 xl:grid-cols-2">
+                    {step.figures.map((figure, i) => (
+                      <div key={i}
+                           className={figure.kind === "graph" || figure.kind === "line"
+                             ? "xl:col-span-2" : "min-w-0"}>
+                        <FigureView figure={figure} />
+                      </div>
+                    ))}
+                  </div>
                 </>
               )}
             </div>

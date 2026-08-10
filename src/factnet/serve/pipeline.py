@@ -133,11 +133,13 @@ def _content_step(trace: Trace, text: str, model_key: str,
 
 
 def _structure_step(trace: Trace, data, handles, origin: str, has_features: bool,
-                    corpus: str, forced: str | None = None) -> tuple[float, str]:
+                    corpus: str, forced: str | None = None,
+                    kinds: list[str] | None = None,
+                    followers: list[int] | None = None) -> tuple[float, str]:
     checkpoint, key, why = structure_module.pick_checkpoint(origin, has_features, forced)
     probability = structure_module.verdict(data, checkpoint)
     measured = structure_module.shape(data)
-    figures = [structure_module.graph_figure(data, handles),
+    figures = [structure_module.graph_figure(data, handles, kinds, followers),
                structure_module.shape_figure(measured, corpus),
                structure_module.early_curve(data, checkpoint)]
     trace.add(Step(
@@ -238,12 +240,16 @@ def run(text: str = "", cascade: dict | None = None, data=None,
     if on_step is not None:
         trace.listen(on_step)
     corpus = corpus or CORPUS_FOR.get(origin, "politifact")
-    handles = None
+    handles = kinds = followers = None
     if cascade is not None:
         from factnet.ingestion.to_graph import cascade_to_pyg
         nodes = cascade["nodes"]
         order = sorted(range(len(nodes)), key=lambda i: nodes[i].get("kind") != "source")
         handles = [nodes[i].get("handle", "") for i in order]
+        # the picture needs these too: without them every edge reads as a repost
+        # and the largest audiences cannot be named
+        kinds = structure_module.edge_kinds(cascade)
+        followers = structure_module.node_followers(cascade, order)
         data = data if data is not None else cascade_to_pyg(cascade)
         text = text or cascade.get("text", "")
 
@@ -272,7 +278,8 @@ def run(text: str = "", cascade: dict | None = None, data=None,
     structure_p = None
     if has_cascade:
         structure_p, _ = _structure_step(trace, data, handles, origin,
-                                         has_features, corpus, graph_model)
+                                         has_features, corpus, graph_model,
+                                         kinds, followers)
         if content_p is not None and has_features:
             combined = _integration_step(trace, data, content_p, origin)
             if combined is not None:
