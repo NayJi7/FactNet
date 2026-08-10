@@ -59,10 +59,24 @@
 
   ::selection { background: var(--color-signal-dim); }
 
-  :focus-visible {
+  :focus-visible,
+  summary:focus-visible {
     outline: 2px solid var(--color-struct);
     outline-offset: 2px;
     border-radius: 2px;
+  }
+
+  /* a summary is focusable and, left alone, shows nothing when tabbed to */
+  summary { outline-offset: 3px; }
+
+  /* form fields marked focus only by a border colour, which is quieter than
+     the ring every other control gets; they are the primary inputs and should
+     not be the least visible thing to arrive on */
+  textarea:focus-visible,
+  input:focus-visible,
+  select:focus-visible {
+    outline: 2px solid var(--color-struct);
+    outline-offset: 1px;
   }
 }
 

@@ -13,6 +13,7 @@ import json
 import queue
 import re
 import threading
+import urllib.error
 from collections.abc import Iterator
 from dataclasses import asdict
 from typing import Any
@@ -200,10 +201,24 @@ def fetch(request: FetchRequest) -> dict[str, Any]:
         enrich_profiles(client, cascade)
     except HTTPException:
         raise
-    except Exception as error:                       # network, auth, rate limit
+    except urllib.error.HTTPError as error:
+        # a refusal from Bluesky is not a network failure, and saying so would
+        # send someone with a mistyped link off debugging their connection
+        if error.code in (400, 404):
+            raise HTTPException(
+                404, "Bluesky has no such post. Check the link, or use one of "
+                     "the collected cascades.") from error
+        if error.code == 429:
+            raise HTTPException(
+                429, "Bluesky is rate limiting this account. The collected "
+                     "cascades work without it.") from error
+        raise HTTPException(
+            502, f"Bluesky answered {error.code}. The collected cascades work "
+                 "offline.") from error
+    except Exception as error:                       # network, auth, timeout
         raise HTTPException(
             502, f"Bluesky could not be reached ({type(error).__name__}). "
-                 "The pre-loaded examples work offline.") from error
+                 "The collected cascades work offline.") from error
 
     return {"cascade": cascade}
 

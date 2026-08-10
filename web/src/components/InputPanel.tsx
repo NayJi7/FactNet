@@ -70,7 +70,7 @@ export default function InputPanel({
           value={text}
           onChange={(e) => setText(e.target.value)}
           rows={4}
-          className="w-full border border-rule bg-panel p-3 outline-none transition-colors focus:border-struct resize-y text-[14px] leading-relaxed"
+          className="w-full border border-rule bg-panel p-3 transition-colors focus:border-struct resize-y text-[14px] leading-relaxed"
           placeholder="Paste the text of a post"
         />
       )}
@@ -80,7 +80,7 @@ export default function InputPanel({
           <input
             value={url}
             onChange={(e) => setUrl(e.target.value)}
-            className="w-full border border-rule bg-panel p-3 outline-none transition-colors focus:border-struct font-mono text-[12.5px]"
+            className="w-full border border-rule bg-panel p-3 transition-colors focus:border-struct font-mono text-[12.5px]"
             placeholder="https://bsky.app/profile/handle/post/xxxxx"
           />
           <p className="text-[12.5px] leading-relaxed text-ink-faint">
@@ -99,7 +99,7 @@ export default function InputPanel({
             onChange={(e) => setCascade(e.target.value)}
             rows={8}
             spellCheck={false}
-            className="w-full border border-rule bg-panel p-3 outline-none transition-colors focus:border-struct resize-y font-mono text-[11.5px] leading-relaxed"
+            className="w-full border border-rule bg-panel p-3 transition-colors focus:border-struct resize-y font-mono text-[11.5px] leading-relaxed"
             placeholder={SCHEMA_EXAMPLE}
           />
           <details className="text-[12.5px] text-ink-faint">
@@ -171,6 +171,7 @@ export default function InputPanel({
           <select
             value={graphModel}
             onChange={(e) => setGraphModel(e.target.value)}
+            aria-label="Propagation detector"
             className="w-full border border-rule bg-panel p-2 text-[13px]"
           >
             <option value="">
