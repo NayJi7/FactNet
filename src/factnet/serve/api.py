@@ -193,7 +193,10 @@ def fetch(request: FetchRequest) -> dict[str, Any]:
         post = thread.get("post") if isinstance(thread, dict) else None
         if not post:
             raise HTTPException(404, "the post could not be read")
-        cascade = collect_cascade(client, post)
+        cascade = collect_cascade(client, post, thread)
+        # trim before enriching: the counters are fetched twenty-five accounts
+        # at a time, and there is no point paying for accounts about to be cut
+        trim(cascade)
         enrich_profiles(client, cascade)
     except HTTPException:
         raise
@@ -202,28 +205,53 @@ def fetch(request: FetchRequest) -> dict[str, Any]:
             502, f"Bluesky could not be reached ({type(error).__name__}). "
                  "The pre-loaded examples work offline.") from error
 
-    if len(cascade["nodes"]) > MAX_LIVE_ACCOUNTS:
-        cascade["nodes"] = cascade["nodes"][:MAX_LIVE_ACCOUNTS]
-        keep = {n["did"] for n in cascade["nodes"]}
-        cascade["edges"] = [e for e in cascade["edges"]
-                            if e["source"] in keep and e["target"] in keep]
-        cascade["_truncated"] = MAX_LIVE_ACCOUNTS
     return {"cascade": cascade}
 
 
-def enrich_profiles(client, cascade: dict) -> int:
-    """Fill the account counters, 25 accounts per call, failures left as they were."""
+def trim(cascade: dict) -> None:
+    """Cut a live cascade to a size a demonstration can wait for."""
+    if len(cascade["nodes"]) <= MAX_LIVE_ACCOUNTS:
+        return
+    cascade["nodes"] = cascade["nodes"][:MAX_LIVE_ACCOUNTS]
+    keep = {n["did"] for n in cascade["nodes"]}
+    cascade["edges"] = [e for e in cascade["edges"]
+                        if e["source"] in keep and e["target"] in keep]
+    cascade["_truncated"] = MAX_LIVE_ACCOUNTS
+
+
+def enrich_profiles(client, cascade: dict, workers: int = 6) -> int:
+    """Fill the account counters, twenty-five accounts per call.
+
+    The calls are independent and each costs well over a second, so running
+    them one after another dominated the wait: sixteen batches took nearly forty
+    seconds while the person who pasted the link watched nothing happen. They
+    are issued concurrently instead, which is a handful of requests against a
+    limit measured in thousands per five minutes.
+
+    A batch that fails leaves its accounts as they were rather than aborting the
+    rest: a cascade with some counters is more useful than none.
+    """
+    from concurrent.futures import ThreadPoolExecutor
+
     from factnet.ingestion.bluesky import profile_features
 
     dids = [n["did"] for n in cascade["nodes"] if n.get("did")]
-    detailed: dict[str, dict] = {}
-    for start in range(0, len(dids), client.PROFILE_BATCH):
+    batches = [dids[i:i + client.PROFILE_BATCH]
+               for i in range(0, len(dids), client.PROFILE_BATCH)]
+
+    def fetch(batch: list[str]) -> list[dict]:
         try:
-            for profile in client.profiles(dids[start:start + client.PROFILE_BATCH]):
+            return client.profiles(batch)
+        except Exception:
+            return []
+
+    detailed: dict[str, dict] = {}
+    with ThreadPoolExecutor(max_workers=workers) as pool:
+        for found in pool.map(fetch, batches):
+            for profile in found:
                 if profile.get("did"):
                     detailed[profile["did"]] = profile
-        except Exception:
-            break                                    # keep what was already gathered
+
     for node in cascade["nodes"]:
         found = detailed.get(node.get("did"))
         if found:

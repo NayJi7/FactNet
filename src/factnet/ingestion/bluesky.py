@@ -157,8 +157,12 @@ def _walk_replies(node: dict, parent: str, nodes: dict, edges: list) -> None:
         _walk_replies(reply, did, nodes, edges)
 
 
-def collect_cascade(client: BlueskyClient, post: dict) -> dict:
-    """One post with the accounts that reposted or replied to it."""
+def collect_cascade(client: BlueskyClient, post: dict, thread: dict | None = None) -> dict:
+    """One post with the accounts that reposted or replied to it.
+
+    A caller that has already read the thread passes it in: fetching it a second
+    time costs several seconds and returns the same conversation.
+    """
     record = post.get("record") or {}
     author = post.get("author") or {}
     uri = post["uri"]
@@ -178,7 +182,7 @@ def collect_cascade(client: BlueskyClient, post: dict) -> dict:
                       "profile": profile_features(account)}
         edges.append({"source": root, "target": did, "kind": "repost"})
 
-    thread = client.thread(uri)
+    thread = thread if thread is not None else client.thread(uri)
     if thread:
         _walk_replies(thread, root, nodes, edges)
 
