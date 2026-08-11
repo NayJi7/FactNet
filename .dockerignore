@@ -1,0 +1,32 @@
+# Everything the image does not need. The two big ones are models/ and data/,
+# which are mounted at run time rather than copied in, and node_modules, which
+# is reinstalled from the lockfile inside the build.
+
+.git
+.git/
+.gitignore
+
+models/
+data/
+notebooks/
+docs/
+tests/
+
+.venv/
+__pycache__/
+**/__pycache__/
+*.py[cod]
+.pytest_cache/
+.ruff_cache/
+
+web/node_modules/
+web/dist/
+
+*.md
+!README.md
+
+PRODUCT.md
+DESIGN.md
+run-dashboard.sh
+*.log
+.DS_Store

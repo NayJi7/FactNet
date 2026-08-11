@@ -10,12 +10,14 @@ shows and what ``pytest`` checks are the same computation.
 from __future__ import annotations
 
 import json
+import os
 import queue
 import re
 import threading
 import urllib.error
 from collections.abc import Iterator
 from dataclasses import asdict
+from pathlib import Path
 from typing import Any
 
 from fastapi import FastAPI, HTTPException
@@ -31,9 +33,16 @@ from factnet.serve.registry import catalogue
 
 app = FastAPI(title="UM-FactNet", version="1.0")
 
-# the front end is served by Vite in development, on another port
-app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_methods=["*"],
-                   allow_headers=["*"])
+# In development Vite serves the front end from another port, so the browser
+# makes cross-origin calls and anything is allowed. A deployment serves both
+# from one origin and needs none of that, so the permissive default is kept
+# only when nothing is configured.
+_origins = os.environ.get("FACTNET_CORS_ORIGINS", "*")
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"] if _origins == "*" else
+                  [o.strip() for o in _origins.split(",") if o.strip()],
+    allow_methods=["GET", "POST"], allow_headers=["*"])
 
 POST_URL = re.compile(r"bsky\.app/profile/([^/]+)/post/([A-Za-z0-9]+)")
 MAX_LIVE_ACCOUNTS = 400
@@ -293,3 +302,31 @@ def health() -> dict[str, Any]:
     return {"ok": bool(content and graph),
             "content_models": len(content), "graph_models": len(graph),
             "samples": len(samples.load())}
+
+
+# ---------------------------------------------------------------------------
+# The built front end, when there is one.
+#
+# In development Vite serves it and this does nothing. A deployment builds it
+# into the image and mounts it here, so the container answers both the API and
+# the page from one origin and the reverse proxy in front has nothing to route.
+# It is mounted last: every /api route is already registered, so the catch-all
+# below can never shadow one.
+_dist = Path(os.environ.get(
+    "FACTNET_WEB_DIST",
+    Path(__file__).resolve().parents[3] / "web" / "dist"))
+
+if (_dist / "index.html").is_file():
+    from fastapi.responses import FileResponse
+    from fastapi.staticfiles import StaticFiles
+
+    app.mount("/assets", StaticFiles(directory=_dist / "assets"), name="assets")
+
+    @app.get("/{path:path}", include_in_schema=False)
+    def spa(path: str) -> FileResponse:
+        """Serve a real file when one exists, and the page otherwise."""
+        candidate = (_dist / path).resolve()
+        # resolve() then compare, so ../ in a request cannot escape the tree
+        if path and candidate.is_file() and candidate.is_relative_to(_dist.resolve()):
+            return FileResponse(candidate)
+        return FileResponse(_dist / "index.html")

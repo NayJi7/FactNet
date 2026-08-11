@@ -40,3 +40,6 @@ models/*
 *.swp
 .idea/
 .vscode/
+
+# server-side configuration, may hold an app password
+.env

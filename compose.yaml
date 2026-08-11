@@ -1,0 +1,94 @@
+# The dashboard as it runs on the server.
+#
+# It listens on the loopback interface only. Nothing reaches it except the
+# reverse proxy on the same host, so the container itself is never exposed to
+# the internet and the port it uses is an internal detail.
+
+services:
+  dashboard:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: factnet-dashboard:latest
+    container_name: factnet-dashboard
+    restart: unless-stopped
+
+    # 127.0.0.1 is the whole point: without it Docker would punch a hole in the
+    # firewall and publish the port on every interface, ufw rules or not
+    ports:
+      - "127.0.0.1:${FACTNET_PORT:-8347}:${FACTNET_PORT:-8347}"
+
+    # Compose reads .env for ${...} interpolation below; env_file only reaches
+    # the container. Both point at the same file so a port changed in one place
+    # cannot leave the published mapping pointing somewhere else.
+    env_file:
+      - path: ./.env
+        required: false
+    environment:
+      FACTNET_PORT: "${FACTNET_PORT:-8347}"
+      FACTNET_WORKERS: "${FACTNET_WORKERS:-1}"
+      FACTNET_LOG_LEVEL: "${FACTNET_LOG_LEVEL:-info}"
+      # one origin serves both the page and the API, so the browser never makes
+      # a cross-origin call and nothing needs to be allowed
+      FACTNET_CORS_ORIGINS: "${FACTNET_CORS_ORIGINS:-}"
+      # keep BLAS from spawning a thread per core inside each worker and
+      # thrashing a 4-core box
+      OMP_NUM_THREADS: "${FACTNET_THREADS:-2}"
+      MKL_NUM_THREADS: "${FACTNET_THREADS:-2}"
+      TORCH_NUM_THREADS: "${FACTNET_THREADS:-2}"
+
+    # the payload the image deliberately does not carry, read-only because the
+    # application has no reason to write to either
+    volumes:
+      - ./models:/app/models:ro
+      - ./data:/app/data:ro
+
+    # ---- hardening
+    read_only: true
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    tmpfs:
+      # the only paths that must be writable, both scratch and both capped
+      - /tmp:size=256m,mode=1777
+      - /home/factnet/.cache:size=64m,uid=10001,gid=10001
+
+    # ---- resources
+    # measured: 2.1 GB resident with every content model loaded. The limit is
+    # headroom above that, not a guess, and it exists so a runaway request
+    # cannot take the host down with it.
+    deploy:
+      resources:
+        limits:
+          memory: ${FACTNET_MEM_LIMIT:-4g}
+          cpus: "${FACTNET_CPUS:-3.0}"
+        reservations:
+          memory: 1g
+    stop_grace_period: 20s
+
+    # ---- logs
+    # rotated by the daemon, so an unattended box cannot fill its disk with
+    # access lines. `docker compose logs -f dashboard` reads them.
+    logging:
+      driver: json-file
+      options:
+        max-size: "20m"
+        max-file: "5"
+        tag: "factnet/{{.Name}}"
+
+    healthcheck:
+      test:
+        - CMD
+        - python
+        - -c
+        - |
+          import json, os, sys, urllib.request
+          port = os.environ["FACTNET_PORT"]
+          r = json.load(urllib.request.urlopen(
+              f"http://127.0.0.1:{port}/api/health", timeout=8))
+          sys.exit(0 if r.get("ok") else 1)
+      interval: 30s
+      timeout: 10s
+      start_period: 90s
+      retries: 3
