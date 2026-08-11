@@ -33,10 +33,23 @@ DEFAULT_OUT = DEFAULT_IN.with_name("cascades-anonymised.jsonl")
 # would otherwise leave untouched
 MENTION = re.compile(r"@?\b[\w.-]+\.(bsky\.social|social|com|org|net)\b|did:plc:[a-z0-9]+")
 
+# Bluesky renders the link inside the post, and on this sample the label was
+# read from precisely that link, so leaving it in publishes the answer beside
+# the question. The mention pattern above happened to remove most of them, but
+# only because it lists three of the endings a link can have; this is explicit
+# so that the next collection does not republish the leak on a suffix nobody
+# thought of.
+LINK = re.compile(
+    r"https?://\S+"
+    r"|\bwww\.\S+"
+    r"|\b[\w-]+(?:\.[\w-]+)*\.[a-z]{2,}/\S*",   # a bare domain followed by a path
+    re.IGNORECASE,
+)
+
 
 def scrub_mentions(text: str) -> str:
-    """Replace account handles cited inside a post by a neutral marker."""
-    return MENTION.sub("@account", text or "")
+    """Replace handles and outlet links cited inside a post by neutral markers."""
+    return MENTION.sub("@account", LINK.sub("@link", text or ""))
 
 
 def anonymise(cascades: list[dict]) -> list[dict]:
