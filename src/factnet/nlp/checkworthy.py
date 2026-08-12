@@ -30,21 +30,49 @@ import argparse
 import re
 from pathlib import Path
 
-# a verifiable assertion tends to carry numbers, dates, named sources or institutions
+# A verifiable assertion tends to carry numbers, dates, named sources or
+# institutions. Every verb is spelled with its inflections rather than folded
+# into an optional suffix: "confirmed?" reads as "confirme" plus an optional
+# "d" and therefore never matches "confirm" or "confirms", which is the form a
+# headline actually uses.
 QUANTITY = re.compile(r"\b\d[\d,.]*\s*(%|percent|million|billion|thousand|k\b)|\B\$\d|\b\d{4}\b")
-ATTRIBUTION = re.compile(r"\b(says?|said|claims?|claimed|announced?|reported?|according to|"
-                         r"admits?|denies|confirmed?|warns?|told)\b", re.I)
-INSTITUTION = re.compile(r"\b(gov(ernment)?|senate|congress|court|ministry|agency|study|studies|"
-                         r"research(ers)?|report|data|cdc|fda|who|nasa|university|police|"
-                         r"official|president|minister|senator|department|white house|"
-                         r"parliament|commission|bureau|institute|hospital|regulator)\b", re.I)
-CHANGE = re.compile(r"\b(banned?|approved?|passed?|signed?|cut|raised?|increased?|decreased?|"
-                    r"caused?|killed?|linked to|proves?|shows?|found|"
-                    # magnitude verbs: a quantity can be asserted without a digit,
-                    # and "has doubled" is as checkable as "rose by 100 %"
-                    r"doubled?|tripled?|quadrupled?|halved?|rose|risen|fell|fallen|"
-                    r"dropped?|surged?|plunged?|soared?|jumped?|spiked?|plummeted?|"
-                    r"grew|grown|shrank|shrunk|declined?|climbed?|overtook|exceeded?)\b", re.I)
+ATTRIBUTION = re.compile(
+    r"\b(say|says|said|claim|claims|claimed|announce|announces|announced|"
+    r"report|reports|reported|according to|admit|admits|admitted|"
+    r"deny|denies|denied|confirm|confirms|confirmed|warn|warns|warned|"
+    r"tell|tells|told|state|states|stated|allege|alleges|alleged|"
+    r"insist|insists|insisted|reveal|reveals|revealed)\b", re.I)
+# The acronyms are case-sensitive inside an otherwise case-insensitive pattern:
+# "who" spelled in lower case is one of the commonest words in English and
+# would fire on every relative clause.
+INSTITUTION = re.compile(
+    r"\b(gov|govs|government|governments|senate|congress|court|courts|"
+    r"ministry|ministries|agency|agencies|study|studies|research|researcher|"
+    r"researchers|data|university|universities|police|official|officials|"
+    r"president|presidents|minister|ministers|senator|senators|"
+    r"department|departments|white house|parliament|commission|commissions|"
+    r"bureau|bureaus|institute|institutes|hospital|hospitals|"
+    r"regulator|regulators|scientist|scientists|doctor|doctors|"
+    r"expert|experts|authorities|lawmaker|lawmakers|"
+    r"(?-i:CDC|FDA|WHO|NASA|EPA|NATO|UN))\b", re.I)
+CHANGE = re.compile(
+    r"\b(ban|bans|banned|approve|approves|approved|pass|passes|passed|"
+    r"sign|signs|signed|cut|cuts|raise|raises|raised|"
+    r"increase|increases|increased|decrease|decreases|decreased|"
+    r"cause|causes|caused|kill|kills|killed|link|links|linked to|"
+    r"prove|proves|proved|proven|show|shows|showed|shown|find|finds|found|"
+    r"recall|recalls|recalled|rescind|rescinds|rescinded|"
+    r"repeal|repeals|repealed|reject|rejects|rejected|block|blocks|blocked|"
+    # magnitude verbs: a quantity can be asserted without a digit,
+    # and "has doubled" is as checkable as "rose by 100 %"
+    r"double|doubles|doubled|triple|triples|tripled|quadruple|quadrupled|"
+    r"halve|halves|halved|rise|rises|rose|risen|fall|falls|fell|fallen|"
+    r"drop|drops|dropped|surge|surges|surged|plunge|plunges|plunged|"
+    r"soar|soars|soared|jump|jumps|jumped|spike|spikes|spiked|"
+    r"plummet|plummets|plummeted|grow|grows|grew|grown|"
+    r"shrink|shrinks|shrank|shrunk|decline|declines|declined|"
+    r"climb|climbs|climbed|overtake|overtakes|overtook|"
+    r"exceed|exceeds|exceeded)\b", re.I)
 
 # A named measurable quantity, which makes a sentence checkable even when it
 # carries no figure. Kept to things a statistics office publishes, so that it
@@ -67,9 +95,15 @@ def score(text: str) -> float:
     if len(stripped) < 25:            # too short to carry a checkable assertion
         return 0.0
 
+    # One marker is enough. The gate exists to hold back talk about oneself,
+    # jokes and questions, and its errors are not symmetric: a false positive
+    # costs a wasted verdict that the interface labels as such, while a false
+    # negative stops the pipeline on a claim that was worth checking. "Trump
+    # says the election was stolen" carries a single marker and is exactly the
+    # kind of sentence this stage must let through.
     positive = sum(weight for pattern, weight in (
         (QUANTITY, 0.30), (ATTRIBUTION, 0.25), (INSTITUTION, 0.25),
-        (CHANGE, 0.20), (MEASURE, 0.20))
+        (CHANGE, 0.25), (MEASURE, 0.25))
         if pattern.search(stripped))
     penalty = sum(weight for pattern, weight in (
         (FIRST_PERSON, 0.25), (OPINION, 0.20), (QUESTION, 0.15))

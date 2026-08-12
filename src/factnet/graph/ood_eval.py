@@ -19,6 +19,8 @@ topology survives the move between platforms.
 from __future__ import annotations
 
 import csv
+import json
+import statistics as st
 from pathlib import Path
 
 import torch
@@ -36,6 +38,7 @@ DATA = Path(__file__).resolve().parents[3] / "data" / "raw"
 COLLECTED = DATA / "bluesky" / "cascades-by-source.jsonl"
 IFFY = DATA / "iffy-index.csv"
 SEEDS = (0, 1, 2)
+RESULTS = Path(__file__).resolve().parents[3] / "data" / "results"
 
 
 def strip_features(dataset) -> list[Data]:
@@ -96,6 +99,7 @@ def run(dataset: str = "gossipcop") -> None:
     print(f"collected: {len(collected)} cascades, "
           f"of which {len(strict_idx)} in the strict subset\n")
 
+    table = {}
     for variant in ("account features", "structure only"):
         rows = []
         for seed in SEEDS:
@@ -109,9 +113,21 @@ def run(dataset: str = "gossipcop") -> None:
             _, f_ood = evaluate(model, ood)
             _, f_strict = evaluate(model, [ood[i] for i in strict_idx])
             rows.append((f_in, f_ood, f_strict))
-        mean = [sum(c) / len(c) for c in zip(*rows, strict=True)]
-        print(f"{variant:18s} in-domain {mean[0]:.3f} | Bluesky {mean[1]:.3f} "
-              f"| strict subset {mean[2]:.3f} | gap {mean[0] - mean[1]:+.3f}")
+        cols = list(zip(*rows, strict=True))
+        mean = [st.fmean(c) for c in cols]
+        sd = [st.pstdev(c) for c in cols]
+        table[variant] = {k: {"mean": round(m, 4), "std": round(s, 4)}
+                          for k, m, s in zip(("in_domain", "bluesky", "strict"),
+                                             mean, sd, strict=True)}
+        print(f"{variant:18s} in-domain {mean[0]:.3f} ±{sd[0]:.3f} "
+              f"| Bluesky {mean[1]:.3f} ±{sd[1]:.3f} "
+              f"| strict subset {mean[2]:.3f} ±{sd[2]:.3f} "
+              f"| gap {mean[0] - mean[1]:+.3f}")
+
+    RESULTS.mkdir(parents=True, exist_ok=True)
+    path = RESULTS / "ood_transfer.json"
+    path.write_text(json.dumps(table, indent=2) + "\n")
+    print(f"\nwritten to {path}")
 
 
 def main():

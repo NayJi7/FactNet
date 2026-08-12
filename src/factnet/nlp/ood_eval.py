@@ -47,6 +47,7 @@ from factnet.nlp import checkworthy
 from factnet.serve.pipeline import CHECKWORTHY_FLOOR
 
 ROOT = Path(__file__).resolve().parents[3]
+RESULTS = ROOT / "data" / "results"
 COLLECTED = ROOT / "data" / "raw" / "bluesky" / "cascades-by-source.jsonl"
 SEEDS = (0, 1, 2)
 
@@ -105,15 +106,37 @@ def transfer(rows: list[dict]) -> list[dict]:
             probabilities.append(score(text, card)[0])
         predicted = [1 if p >= 0.5 else 0 for p in probabilities]
         share_reliable = sum(predicted) / len(predicted)
+        low, high = _bootstrap(truth, predicted)
         out.append({
             "model": card.name,
             "liar_macro_f1": card.macro_f1,
             "macro_f1": f1_score(truth, predicted, average="macro"),
+            "ci95": [round(low, 4), round(high, 4)],
+            "above_chance": bool(low > 0.5),
             "predicted_reliable": share_reliable,
             "mean_p": st.mean(probabilities),
             "spread": max(probabilities) - min(probabilities),
         })
     return out
+
+
+def _bootstrap(truth, predicted, rounds: int = 5000, seed: int = 0):
+    """An interval on 398 posts, so that "falls to chance" can be checked.
+
+    The sample is small enough that a macro-F1 of 0.590 and one of 0.500 are not
+    obviously different, and the claim being made is precisely that they are not.
+    """
+    import numpy as np
+
+    rng = np.random.default_rng(seed)
+    y, p = np.array(truth), np.array(predicted)
+    n = len(y)
+    scores = np.empty(rounds)
+    for i in range(rounds):
+        idx = rng.integers(0, n, n)
+        scores[i] = (f1_score(y[idx], p[idx], average="macro")
+                     if len(np.unique(y[idx])) > 1 else np.nan)
+    return tuple(np.nanpercentile(scores, [2.5, 97.5]))
 
 
 # ---------------------------------------------------------------- 3 and 4. in domain
@@ -183,11 +206,18 @@ def main() -> None:
           f"  vs reliable {claims['rate_reliable']:.1%}\n")
 
     print("2. LIAR-trained models, applied unchanged")
-    print(f"   {'model':<34}{'LIAR':>7}{'here':>8}{'said reliable':>15}{'mean p':>9}")
-    for row in transfer(rows):
+    print(f"   {'model':<32}{'LIAR':>6}{'here':>7}{'95% interval':>18}"
+          f"{'>chance':>9}{'said rel.':>11}")
+    payload = transfer(rows)
+    for row in payload:
         liar = f"{row['liar_macro_f1']:.3f}" if row["liar_macro_f1"] else "  -  "
-        print(f"   {row['model']:<34}{liar:>7}{row['macro_f1']:>8.3f}"
-              f"{row['predicted_reliable']:>14.1%}{row['mean_p']:>9.3f}")
+        low, high = row["ci95"]
+        span = f"[{low:.3f}, {high:.3f}]"
+        print(f"   {row['model']:<32}{liar:>6}{row['macro_f1']:>7.3f}{span:>18}"
+              f"{('yes' if row['above_chance'] else 'no'):>9}"
+              f"{row['predicted_reliable']:>11.1%}")
+    RESULTS.mkdir(parents=True, exist_ok=True)
+    (RESULTS / "nlp_transfer.json").write_text(json.dumps(payload, indent=2) + "\n")
 
     print("\n3 and 4. Trained here instead, and what the signal turns out to be")
     print(f"   {'split':<12}{'text':<18}{'macro-F1':>10}")

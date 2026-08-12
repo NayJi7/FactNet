@@ -40,6 +40,7 @@ from factnet.ingestion.to_graph import cascade_to_pyg
 COLLECTED = (Path(__file__).resolve().parents[3] / "data" / "raw" / "bluesky"
              / "cascades-by-source.jsonl")
 SEEDS = (0, 1, 2)
+RESULTS = Path(__file__).resolve().parents[3] / "data" / "results"
 DONE = "CONFOUND-COMPLETE"
 
 
@@ -156,7 +157,8 @@ def main() -> None:
         ("domain split, size matched", matched, split_by_domain),
     ]
 
-    print(f"  {'condition':<30s} {'size rule':>11s} {'Bi-GCN':>10s}", flush=True)
+    table = {}
+    print(f"  {'condition':<30s} {'size rule':>14s} {'Bi-GCN':>15s}", flush=True)
     print("  " + "-" * 53, flush=True)
     for name, data, splitter in conditions:
         rule_scores, model_scores = [], []
@@ -169,10 +171,23 @@ def main() -> None:
         if not rule_scores:
             print(f"  {name:<30s} {'n/a':>11s} {'n/a':>10s}", flush=True)
             continue
-        print(f"  {name:<30s} {st.fmean(rule_scores):>11.3f} "
-              f"{st.fmean(model_scores):>10.3f}", flush=True)
+        table[name] = {
+            "size_rule": {"mean": round(st.fmean(rule_scores), 4),
+                          "std": round(st.pstdev(rule_scores), 4)},
+            "detector": {"mean": round(st.fmean(model_scores), 4),
+                         "std": round(st.pstdev(model_scores), 4)},
+            "test_cascades": len(test),
+        }
+        print(f"  {name:<30s} {st.fmean(rule_scores):>7.3f} "
+              f"+/-{st.pstdev(rule_scores):<6.3f} "
+              f"{st.fmean(model_scores):>7.3f} +/-{st.pstdev(model_scores):<6.3f}",
+              flush=True)
 
     print("\n  chance on a balanced binary task is 0.500", flush=True)
+    RESULTS.mkdir(parents=True, exist_ok=True)
+    path = RESULTS / "confound.json"
+    path.write_text(json.dumps(table, indent=2) + "\n")
+    print(f"  written to {path}", flush=True)
     print(DONE, flush=True)
 
 

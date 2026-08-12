@@ -105,7 +105,10 @@ def fit(train_list: list[Data], in_dim: int, epochs: int = 60, seed: int = 0,
     torch.manual_seed(seed)
     model = start_from if start_from is not None else BiGCN(in_dim, 64, 2)
     opt = torch.optim.Adam(model.parameters(), lr=lr, weight_decay=5e-4)
-    loader = DataLoader(train_list, batch_size=64, shuffle=True)
+    # 128 everywhere: this module and ood_eval both describe themselves as
+    # "the detector trained on GossipCop", and for a while they trained it
+    # differently, which put two figures in the article for one object
+    loader = DataLoader(train_list, batch_size=128, shuffle=True)
     for _ in range(epochs):
         model.train()
         for batch in loader:
