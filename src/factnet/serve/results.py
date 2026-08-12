@@ -46,7 +46,7 @@ TABLES: list[dict[str, Any]] = [
         "best": None,
         "reading": "Five models within two points of each other, and a bag of words "
                    "at the top. The ceiling belongs to the task, not to model "
-                   "capacity: on full article text the same approach reaches 0.822.",
+                   "capacity: reading the full news article instead reaches 0.822.",
     },
     {
         "key": "early",

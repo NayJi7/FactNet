@@ -53,3 +53,45 @@ def test_export_does_not_publish_the_label_beside_the_question():
     ]
     for post in posts:
         assert not URLISH.search(scrub_mentions(post)), post
+
+
+def test_influence_ranking_does_not_depend_on_its_weights():
+    """Both papers claim the ordering survives reweighting. It has to stay true.
+
+    The claim is about the merged network of collected cascades, which is dense
+    because accounts recur across cascades. A tree would not test it: k-core is
+    zero everywhere on a tree, so two of the three terms vanish and the score
+    reduces to a weighted sum of two measures that genuinely do trade off.
+    """
+    import networkx as nx
+    from scipy.stats import spearmanr
+
+    from factnet.graph.influence import _normalise
+
+    # several overlapping cascades, so accounts recur and a core exists
+    g = nx.DiGraph()
+    for root in range(3):
+        for child in range(10, 26):
+            g.add_edge(root, child)
+    for a in range(10, 22):
+        g.add_edge(a, a + 4 if a + 4 < 26 else 10)
+    assert max(nx.core_number(nx.Graph(g)).values()) > 1, "graph has no core"
+
+    pr = _normalise(nx.pagerank(g))
+    core = _normalise(nx.core_number(nx.Graph(g)))
+    reach = _normalise({n: len(nx.descendants(g, n)) for n in g})
+    nodes = list(g)
+
+    def score(a, b, c):
+        return {n: a * reach[n] + b * pr[n] + c * core[n] for n in g}
+
+    reference = score(0.5, 0.3, 0.2)
+    top = set(sorted(reference, key=reference.get, reverse=True)[:8])
+    for weights in ((0.4, 0.4, 0.2), (0.6, 0.2, 0.2), (0.34, 0.33, 0.33),
+                    (0.7, 0.2, 0.1)):
+        other = score(*weights)
+        rho = spearmanr([reference[n] for n in nodes],
+                        [other[n] for n in nodes]).statistic
+        overlap = top & set(sorted(other, key=other.get, reverse=True)[:8])
+        assert rho > 0.98, (weights, rho)
+        assert len(overlap) >= 7, (weights, len(overlap))
