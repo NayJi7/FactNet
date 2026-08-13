@@ -1,0 +1,29 @@
+{
+  "floor": 0.25,
+  "correctness": {
+    "annotated": 165,
+    "retained": 138,
+    "retained_non_claims": 0.37,
+    "rejected": 27,
+    "rejected_non_claims": 0.778,
+    "false_negatives": 6
+  },
+  "reach": {
+    "posts": 398,
+    "clearing": 168,
+    "share": 0.422,
+    "mean_score": 0.224,
+    "by_class": {
+      "misleading": {
+        "posts": 199,
+        "clearing": 72,
+        "share": 0.362
+      },
+      "reliable": {
+        "posts": 199,
+        "clearing": 96,
+        "share": 0.482
+      }
+    }
+  }
+}

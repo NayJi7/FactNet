@@ -1,0 +1,19 @@
+{
+  "collected_diagnostic": {
+    "mean": 0.7666,
+    "std": 0.0233
+  },
+  "portable_features": {
+    "in_domain": 0.8018,
+    "transferred": 0.2146,
+    "std": 0.009
+  },
+  "checkworthiness": {
+    "n": 398,
+    "checkable": 134,
+    "rate": 0.3367,
+    "mean_score": 0.1965,
+    "rate_misleading": 0.2814,
+    "rate_reliable": 0.392
+  }
+}

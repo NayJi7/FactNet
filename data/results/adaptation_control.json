@@ -1,0 +1,67 @@
+{
+  "epochs": 60,
+  "grid": [
+    0.01,
+    0.005,
+    0.002
+  ],
+  "rows": [
+    {
+      "cascades": 40,
+      "scratch": {
+        "mean": 0.7219,
+        "std": 0.0074
+      },
+      "published": {
+        "mean": 0.4246,
+        "std": 0.0142
+      },
+      "matched": {
+        "mean": 0.5818,
+        "std": 0.0995
+      },
+      "best": {
+        "mean": 0.5833,
+        "std": 0.1009
+      }
+    },
+    {
+      "cascades": 100,
+      "scratch": {
+        "mean": 0.7646,
+        "std": 0.0321
+      },
+      "published": {
+        "mean": 0.42,
+        "std": 0.0261
+      },
+      "matched": {
+        "mean": 0.6512,
+        "std": 0.0123
+      },
+      "best": {
+        "mean": 0.6512,
+        "std": 0.0123
+      }
+    },
+    {
+      "cascades": 200,
+      "scratch": {
+        "mean": 0.7774,
+        "std": 0.0208
+      },
+      "published": {
+        "mean": 0.4198,
+        "std": 0.023
+      },
+      "matched": {
+        "mean": 0.7141,
+        "std": 0.0185
+      },
+      "best": {
+        "mean": 0.7158,
+        "std": 0.0178
+      }
+    }
+  ]
+}

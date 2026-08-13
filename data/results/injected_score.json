@@ -1,0 +1,14 @@
+{
+  "politifact": {
+    "macro_f1": 0.8232,
+    "std": 0.0038,
+    "train": 62,
+    "test": 221
+  },
+  "gossipcop": {
+    "macro_f1": 0.7351,
+    "std": 0.0002,
+    "train": 1092,
+    "test": 3826
+  }
+}

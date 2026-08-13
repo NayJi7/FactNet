@@ -1,0 +1,13 @@
+{
+  "edgeless": 0.9396,
+  "masked_graph": {
+    "mean": 0.9631,
+    "std": 0.002
+  },
+  "gap": 0.0236,
+  "ci95": [
+    0.0157,
+    0.0309
+  ],
+  "separates": true
+}

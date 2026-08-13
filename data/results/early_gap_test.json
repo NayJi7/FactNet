@@ -1,0 +1,25 @@
+{
+  "edgeless": 0.8853,
+  "full": {
+    "macro_f1": 0.8998,
+    "seed_std": 0.0118,
+    "gap_vs_edgeless": 0.0146,
+    "gap_ci95": [
+      -0.0054,
+      0.0376
+    ],
+    "excludes_zero": false,
+    "p_ahead": 0.875
+  },
+  "root masked": {
+    "macro_f1": 0.9218,
+    "seed_std": 0.0066,
+    "gap_vs_edgeless": 0.0365,
+    "gap_ci95": [
+      0.023,
+      0.0513
+    ],
+    "excludes_zero": true,
+    "p_ahead": 1.0
+  }
+}

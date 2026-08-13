@@ -1,0 +1,44 @@
+{
+  "gossipcop/profile": {
+    "GCN": {
+      "mean": 0.8775,
+      "std": 0.0066
+    },
+    "GAT": {
+      "mean": 0.8742,
+      "std": 0.0091
+    },
+    "Bi-GCN": {
+      "mean": 0.901,
+      "std": 0.0087
+    }
+  },
+  "politifact/profile": {
+    "GCN": {
+      "mean": 0.7721,
+      "std": 0.0043
+    },
+    "GAT": {
+      "mean": 0.7706,
+      "std": 0.0044
+    },
+    "Bi-GCN": {
+      "mean": 0.7763,
+      "std": 0.0074
+    }
+  },
+  "politifact/bert": {
+    "GCN": {
+      "mean": 0.8308,
+      "std": 0.002
+    },
+    "GAT": {
+      "mean": 0.8308,
+      "std": 0.0055
+    },
+    "Bi-GCN": {
+      "mean": 0.8322,
+      "std": 0.0037
+    }
+  }
+}

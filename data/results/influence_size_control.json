@@ -1,0 +1,24 @@
+{
+  "accounts": 8629,
+  "influence_vs_size": {
+    "rho": 0.0182,
+    "p": 0.09166
+  },
+  "size_vs_share": {
+    "rho": -0.2525,
+    "p": 1.369e-125
+  },
+  "uncontrolled": {
+    "rho": 0.086,
+    "p": 1.26e-15
+  },
+  "activity_null": {
+    "p": 0.012
+  },
+  "activity_and_size_null": {
+    "p": 0.032,
+    "null_mean_rho": 0.0731
+  },
+  "within_strata_rho": 0.0209,
+  "accounts_in_singleton_strata": 33
+}

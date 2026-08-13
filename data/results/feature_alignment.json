@@ -1,0 +1,87 @@
+{
+  "dead_dimensions": [
+    0,
+    1,
+    4
+  ],
+  "marginals": [
+    {
+      "dim": 0,
+      "upfd": 0.0,
+      "collected": 0.0,
+      "ratio": null
+    },
+    {
+      "dim": 1,
+      "upfd": 0.0,
+      "collected": 0.0,
+      "ratio": null
+    },
+    {
+      "dim": 2,
+      "upfd": 3.428e-05,
+      "collected": 0.49122265,
+      "ratio": 14330.0
+    },
+    {
+      "dim": 3,
+      "upfd": 0.00087406,
+      "collected": 0.44471776,
+      "ratio": 508.8
+    },
+    {
+      "dim": 4,
+      "upfd": 0.01730001,
+      "collected": 0.0,
+      "ratio": null
+    },
+    {
+      "dim": 5,
+      "upfd": 0.00011112,
+      "collected": 0.51515436,
+      "ratio": 4636.1
+    },
+    {
+      "dim": 6,
+      "upfd": 0.00014113,
+      "collected": 0.17369863,
+      "ratio": 1230.8
+    },
+    {
+      "dim": 7,
+      "upfd": 0.60958904,
+      "collected": 0.07333333,
+      "ratio": 8.3
+    },
+    {
+      "dim": 8,
+      "upfd": 0.11111111,
+      "collected": 0.03333334,
+      "ratio": 3.3
+    },
+    {
+      "dim": 9,
+      "upfd": 0.13235295,
+      "collected": 0.40333334,
+      "ratio": 3.0
+    }
+  ],
+  "transfer_raw": {
+    "mean": 0.3718,
+    "std": 0.0272,
+    "seeds": [
+      0.3903,
+      0.3917,
+      0.3333
+    ]
+  },
+  "transfer_aligned": {
+    "mean": 0.4429,
+    "std": 0.0294,
+    "seeds": [
+      0.4695,
+      0.4573,
+      0.402
+    ]
+  }
+}

@@ -1,0 +1,78 @@
+{
+  "reference": [
+    0.5,
+    0.3,
+    0.2
+  ],
+  "top_k": 100,
+  "rows": [
+    {
+      "weights": [
+        0.7,
+        0.2,
+        0.1
+      ],
+      "spearman": 0.99905,
+      "top_k_shared": 95
+    },
+    {
+      "weights": [
+        0.6,
+        0.2,
+        0.2
+      ],
+      "spearman": 0.99961,
+      "top_k_shared": 99
+    },
+    {
+      "weights": [
+        0.4,
+        0.4,
+        0.2
+      ],
+      "spearman": 0.99898,
+      "top_k_shared": 97
+    },
+    {
+      "weights": [
+        0.4,
+        0.3,
+        0.3
+      ],
+      "spearman": 0.9997,
+      "top_k_shared": 99
+    },
+    {
+      "weights": [
+        0.34,
+        0.33,
+        0.33
+      ],
+      "spearman": 0.99953,
+      "top_k_shared": 98
+    },
+    {
+      "weights": [
+        0.3,
+        0.5,
+        0.2
+      ],
+      "spearman": 0.99767,
+      "top_k_shared": 93
+    },
+    {
+      "weights": [
+        0.2,
+        0.3,
+        0.5
+      ],
+      "spearman": 0.99866,
+      "top_k_shared": 96
+    }
+  ],
+  "worst_spearman": 0.99767,
+  "top_k_shared_range": [
+    93,
+    99
+  ]
+}

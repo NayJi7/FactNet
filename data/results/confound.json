@@ -1,0 +1,46 @@
+{
+  "cascade split, all sizes": {
+    "size_rule": {
+      "mean": 0.902,
+      "std": 0.0207
+    },
+    "detector": {
+      "mean": 0.7676,
+      "std": 0.0399
+    },
+    "test_cascades": 160
+  },
+  "cascade split, size matched": {
+    "size_rule": {
+      "mean": 0.5044,
+      "std": 0.0251
+    },
+    "detector": {
+      "mean": 0.6853,
+      "std": 0.0451
+    },
+    "test_cascades": 32
+  },
+  "domain split, all sizes": {
+    "size_rule": {
+      "mean": 0.9121,
+      "std": 0.1111
+    },
+    "detector": {
+      "mean": 0.7128,
+      "std": 0.0682
+    },
+    "test_cascades": 116
+  },
+  "domain split, size matched": {
+    "size_rule": {
+      "mean": 0.309,
+      "std": 0.0025
+    },
+    "detector": {
+      "mean": 0.5169,
+      "std": 0.0552
+    },
+    "test_cascades": 47
+  }
+}

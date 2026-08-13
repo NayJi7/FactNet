@@ -1,0 +1,67 @@
+[
+  {
+    "model": "RoBERTa (fine-tuned)",
+    "liar_macro_f1": 0.632,
+    "macro_f1": 0.557928913192071,
+    "ci95": [
+      0.5064,
+      0.607
+    ],
+    "above_chance": true,
+    "predicted_reliable": 0.16331658291457288,
+    "mean_p": 0.33142709158286077,
+    "spread": 0.8650271631777287
+  },
+  {
+    "model": "RoBERTa (optimised)",
+    "liar_macro_f1": 0.624,
+    "macro_f1": 0.5086870339933551,
+    "ci95": [
+      0.4601,
+      0.5572
+    ],
+    "above_chance": false,
+    "predicted_reliable": 0.17587939698492464,
+    "mean_p": 0.2775217612910473,
+    "spread": 0.9377834051847458
+  },
+  {
+    "model": "BERT (fine-tuned)",
+    "liar_macro_f1": 0.616,
+    "macro_f1": 0.5031352770386435,
+    "ci95": [
+      0.4543,
+      0.552
+    ],
+    "above_chance": false,
+    "predicted_reliable": 0.16080402010050251,
+    "mean_p": 0.427167538796837,
+    "spread": 0.42362746596336365
+  },
+  {
+    "model": "TF-IDF + logistic regression",
+    "liar_macro_f1": 0.633,
+    "macro_f1": 0.5895549977623411,
+    "ci95": [
+      0.5385,
+      0.6364
+    ],
+    "above_chance": true,
+    "predicted_reliable": 0.33668341708542715,
+    "mean_p": 0.4635731762940209,
+    "spread": 0.5662940988593224
+  },
+  {
+    "model": "RoBERTa (weight decay)",
+    "liar_macro_f1": 0.647,
+    "macro_f1": 0.5652432969215491,
+    "ci95": [
+      0.5143,
+      0.6141
+    ],
+    "above_chance": true,
+    "predicted_reliable": 0.16834170854271358,
+    "mean_p": 0.3267177524391431,
+    "spread": 0.8785883150994778
+  }
+]

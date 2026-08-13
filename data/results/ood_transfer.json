@@ -1,0 +1,30 @@
+{
+  "account features": {
+    "in_domain": {
+      "mean": 0.901,
+      "std": 0.0087
+    },
+    "bluesky": {
+      "mean": 0.3779,
+      "std": 0.0323
+    },
+    "strict": {
+      "mean": 0.4559,
+      "std": 0.0091
+    }
+  },
+  "structure only": {
+    "in_domain": {
+      "mean": 0.7539,
+      "std": 0.0398
+    },
+    "bluesky": {
+      "mean": 0.3027,
+      "std": 0.0222
+    },
+    "strict": {
+      "mean": 0.3295,
+      "std": 0.0144
+    }
+  }
+}
