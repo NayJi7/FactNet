@@ -11,7 +11,6 @@ from __future__ import annotations
 
 import json
 import os
-import queue
 import re
 import threading
 import urllib.error
@@ -26,8 +25,8 @@ from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, Field
 
 from factnet.serve import datasets as datasets_module
+from factnet.serve import jobs, samples
 from factnet.serve import results as results_module
-from factnet.serve import samples
 from factnet.serve.pipeline import run
 from factnet.serve.registry import catalogue
 
@@ -35,13 +34,16 @@ app = FastAPI(title="UM-FactNet", version="1.0")
 
 # In development Vite serves the front end from another port, so the browser
 # makes cross-origin calls and anything is allowed. A deployment serves both
-# from one origin and needs none of that, so the permissive default is kept
-# only when nothing is configured.
-_origins = os.environ.get("FACTNET_CORS_ORIGINS", "*")
+# from one origin and needs none of that, so the wildcard is narrowed to the
+# local dev servers as soon as a built front end is present: a deployment that
+# forgets to set FACTNET_CORS_ORIGINS should not end up with the permissive
+# default, since the correct answer there is to allow nothing.
+_DEV_ORIGINS = ["http://localhost:5173", "http://127.0.0.1:5173"]
+_origins = os.environ.get("FACTNET_CORS_ORIGINS", "")
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"] if _origins == "*" else
-                  [o.strip() for o in _origins.split(",") if o.strip()],
+    allow_origins=(["*"] if _origins.strip() == "*" else
+                   [o.strip() for o in _origins.split(",") if o.strip()] or _DEV_ORIGINS),
     allow_methods=["GET", "POST"], allow_headers=["*"])
 
 POST_URL = re.compile(r"bsky\.app/profile/([^/]+)/post/([A-Za-z0-9]+)")
@@ -121,42 +123,80 @@ def verdict(request: VerdictRequest) -> dict[str, Any]:
     return trace.to_dict()
 
 
-@app.post("/api/verdict/stream")
-def verdict_stream(request: VerdictRequest) -> StreamingResponse:
-    """The same reading, sent stage by stage as each one lands.
+def _label(request: VerdictRequest, cascade: dict[str, Any] | None) -> tuple[str, str]:
+    """Which view the reading belongs to, and a name for it.
 
-    A run takes seconds and produces its stages in order, so there is no reason
-    to withhold them until the last one finishes. The engine is unchanged: it
-    reports each stage to a listener, and this endpoint forwards them.
+    The interface needs both to put someone back where they were after a
+    reload, so they are settled once, here, rather than guessed by the browser.
     """
-    cascade, origin = _resolve(request)
+    if cascade is not None:
+        domain = cascade.get("source_domain") or cascade.get("source_handle") or ""
+        accounts = len(cascade.get("nodes", []))
+        tab = "cascades" if request.sample_id is not None else "verdict"
+        return tab, f"{domain or 'a cascade'}, {accounts} accounts"
+    words = request.text.split()
+    short = " ".join(words[:9]) + ("..." if len(words) > 9 else "")
+    return "verdict", short or "a post"
 
-    events: queue.Queue = queue.Queue()
 
-    def work() -> None:
-        try:
-            trace = run(text=request.text, cascade=cascade,
-                        content_model=request.model, graph_model=request.graph_model,
-                        origin=origin, on_step=lambda s: events.put(("step", asdict(s))))
-            events.put(("done", trace.summary()))
-        except Exception as error:                       # reported, never swallowed
-            events.put(("failed", {"detail": f"{type(error).__name__}: {error}"}))
-        finally:
-            events.put(None)
-
-    threading.Thread(target=work, daemon=True).start()
-
+def _stream(job: jobs.Job, start: int = 0) -> StreamingResponse:
+    """Follow a reading from a given stage, as server-sent events."""
     def frames() -> Iterator[str]:
-        while True:
-            item = events.get()
-            if item is None:
-                return
-            name, payload = item
+        yield f"event: job\ndata: {json.dumps(job.describe())}\n\n"
+        for name, payload in job.follow(start):
             yield f"event: {name}\ndata: {json.dumps(payload)}\n\n"
 
     return StreamingResponse(frames(), media_type="text/event-stream",
                              headers={"Cache-Control": "no-cache",
                                       "X-Accel-Buffering": "no"})
+
+
+@app.post("/api/verdict/stream")
+def verdict_stream(request: VerdictRequest) -> StreamingResponse:
+    """Start a reading and follow it, stage by stage as each one lands.
+
+    The reading is registered as a job before anything is computed, so that a
+    browser which goes away mid-run can find it again instead of losing it.
+    Asking while a reading is already under way follows that one rather than
+    starting a second: the work is heavy, and nothing here needs two at once.
+    """
+    cascade, origin = _resolve(request)
+    tab, label = _label(request, cascade)
+    job, is_new = jobs.REGISTRY.start(tab, label)
+    if not is_new:
+        return _stream(job)
+
+    def work() -> None:
+        try:
+            trace = run(text=request.text, cascade=cascade,
+                        content_model=request.model, graph_model=request.graph_model,
+                        origin=origin, on_step=lambda s: job.append(asdict(s)))
+            job.finish(summary=trace.summary())
+        except Exception as error:                       # reported, never swallowed
+            job.finish(error=f"{type(error).__name__}: {error}")
+
+    threading.Thread(target=work, daemon=True).start()
+    return _stream(job)
+
+
+@app.get("/api/jobs/current")
+def current_job() -> dict[str, Any]:
+    """What is being read right now, if anything.
+
+    A page that has just loaded asks this before showing an idle screen: if a
+    reading it started earlier is still going, it rejoins that instead.
+    """
+    job = jobs.REGISTRY.running()
+    return {"job": job.describe() if job else None}
+
+
+@app.get("/api/jobs/{job_id}/stream")
+def job_stream(job_id: str, since: int = 0) -> StreamingResponse:
+    """Rejoin a reading, replaying the stages already produced."""
+    job = jobs.REGISTRY.get(job_id)
+    if job is None:
+        raise HTTPException(404, "no such reading, it may have finished long ago")
+    return _stream(job, start=max(0, since))
 
 
 def validate_cascade(cascade: dict) -> str | None:
