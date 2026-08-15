@@ -8,13 +8,16 @@ import { useEffect, useState } from "react";
  * Drop `um.png` and `cytech.png` (or .svg) into web/public/logos/ to use them.
  */
 const MARKS = [
-  { key: "um", name: "Universiti Malaya", detail: "FSKTM" },
-  { key: "ct", name: "CY Tech", detail: "CY Cergy Paris Université" },
+  { key: "um", name: "Universiti Malaya", detail: "FSKTM",
+    url: "https://fsktm.um.edu.my/" },
+  { key: "ct", name: "CY Tech", detail: "CY Cergy Paris Université",
+    url: "https://cytech.cyu.fr/" },
 ];
 
 const EXTENSIONS = ["svg", "png", "webp", "jpg"];
 
-function Mark({ file, name, detail }: { file: string; name: string; detail: string }) {
+function Mark({ file, name, detail, url }:
+              { file: string; name: string; detail: string; url: string }) {
   const [src, setSrc] = useState<string | null>(null);
 
   // The image is probed by decoding it, not by asking the server: a dev server
@@ -39,7 +42,9 @@ function Mark({ file, name, detail }: { file: string; name: string; detail: stri
   }, [file]);
 
   return (
-    <div className="flex items-center gap-3">
+    <a href={url} target="_blank" rel="noreferrer"
+       title={`${name}, ${detail}`}
+       className="flex items-center gap-3 transition-opacity hover:opacity-70">
       {src ? (
         <img src={src} alt={name} className="h-9 w-auto max-w-[132px] object-contain opacity-85" />
       ) : (
@@ -51,7 +56,7 @@ function Mark({ file, name, detail }: { file: string; name: string; detail: stri
         <span className="block text-[12.5px] font-medium">{name}</span>
         <span className="block text-[11.5px] text-ink-faint">{detail}</span>
       </span>
-    </div>
+    </a>
   );
 }
 
@@ -59,7 +64,7 @@ export default function Institutions() {
   return (
     <div className="flex flex-wrap items-center gap-x-9 gap-y-4">
       {MARKS.map((m) => (
-        <Mark key={m.key} file={m.key} name={m.name} detail={m.detail} />
+        <Mark key={m.key} file={m.key} name={m.name} detail={m.detail} url={m.url} />
       ))}
     </div>
   );

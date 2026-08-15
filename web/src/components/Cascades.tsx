@@ -1,9 +1,12 @@
 import { useEffect, useState } from "react";
+import ModuleTag from "./ModuleTag";
 import FigureView from "./Figures";
 import Pending from "./Pending";
 import StepList from "./StepList";
 import Verdict from "./Verdict";
 import { getSampleDetail, getSamples } from "../lib/api";
+import { useAsync } from "../lib/useAsync";
+import Failed from "./Failed";
 import { Account } from "../lib/handle";
 import type { Figure, ModelCard, Sample, SampleDetail, Step, Trace } from "../lib/types";
 
@@ -16,6 +19,25 @@ import type { Figure, ModelCard, Sample, SampleDetail, Step, Trace } from "../li
  * carried it. Running a detector is the last thing offered, not the first.
  */
 
+const BLUESKY = "#0085FF";
+
+/** The platform's mark, drawn rather than fetched: no request, and it inherits
+ *  the colour of the text it sits in. */
+function Butterfly({ size = 15 }: { size?: number }) {
+  return (
+    <svg width={size} height={size * (501 / 568)} viewBox="0 0 568 501"
+         fill="currentColor" aria-hidden className="shrink-0">
+      <path d="M123.121 33.664C188.241 82.553 258.281 181.68 284 234.873c25.719-53.192
+               95.759-152.32 160.879-201.209C491.866-1.611 568-28.906 568 57.947c0
+               17.346-9.945 145.713-15.778 166.555-20.275 72.453-94.155 90.933-159.875
+               79.748C507.222 323.8 536.444 388.56 473.333 453.32c-119.86 122.992-172.272-30.859-185.702-70.281-2.462-7.227-3.614-10.608-3.631-7.733-.017-2.875-1.169.506-3.631
+               7.733-13.43 39.422-65.842 193.273-185.702 70.281-63.111-64.76-33.89-129.52
+               80.986-149.071-65.72 11.185-139.6-7.295-159.875-79.748C9.945 203.66 0
+               75.293 0 57.947 0-28.906 76.135-1.611 123.121 33.664Z" />
+    </svg>
+  );
+}
+
 function Field({ label, value }: { label: string; value: React.ReactNode }) {
   return (
     <div>
@@ -26,7 +48,7 @@ function Field({ label, value }: { label: string; value: React.ReactNode }) {
 }
 
 export default function Cascades({
-  models, onAnalyse, busy, trace, arriving, onChange,
+  models, onAnalyse, busy, trace, arriving, onChange, rejoined, jobLabel, elapsed,
 }: {
   models: ModelCard[];
   onAnalyse: (id: number, model: string) => void;
@@ -34,19 +56,21 @@ export default function Cascades({
   trace: Trace | null;
   arriving: Step[];
   onChange: () => void;
+  rejoined?: boolean;
+  jobLabel?: string;
+  elapsed?: number;
 }) {
-  const [list, setList] = useState<Sample[]>([]);
   const [chosen, setChosen] = useState(0);
-  const [detail, setDetail] = useState<SampleDetail | null>(null);
   const [model, setModel] = useState(models.find((m) => m.primary)?.key ?? "roberta");
 
-  useEffect(() => { getSamples().then((s) => setList(s.samples)).catch(() => {}); }, []);
-  useEffect(() => {
-    setDetail(null);
-    onChange();                       // a reading belongs to one cascade only
-    getSampleDetail(chosen).then(setDetail).catch(() => {});
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [chosen]);
+  const samples = useAsync(() => getSamples().then((s) => s.samples), []);
+  const list: Sample[] = samples.data ?? [];
+
+  const loaded = useAsync<SampleDetail>(() => getSampleDetail(chosen), [chosen]);
+  const detail = loaded.data;
+
+  // a reading belongs to one cascade only
+  useEffect(() => { onChange(); /* eslint-disable-next-line react-hooks/exhaustive-deps */ }, [chosen]);
 
   // the caption is the engine's, not a second copy written here: two wordings
   // of the same figure drift apart the moment one of them is edited
@@ -63,12 +87,20 @@ export default function Cascades({
         <ul className="space-y-px">
           {list.map((s) => (
             <li key={s.id}>
+              {/* Changing cascade mid-reading would swap the object under the
+                  running job and land its verdict on the wrong page, so the
+                  list is held until the reading finishes. */}
               <button onClick={() => setChosen(s.id)}
                       aria-current={chosen === s.id}
+                      disabled={busy && chosen !== s.id}
+                      title={busy && chosen !== s.id
+                        ? "A reading is under way on another cascade." : undefined}
                       className={`w-full border-l-2 py-2.5 pl-3 pr-2 text-left transition-colors ${
                         chosen === s.id
                           ? "border-ink bg-panel"
-                          : "border-transparent hover:bg-panel/60"
+                          : busy
+                            ? "border-transparent opacity-40"
+                            : "border-transparent hover:bg-panel/60"
                       }`}>
                 <span className="flex items-baseline justify-between gap-2">
                   <span className="font-mono text-[12.5px]">{s.source_domain}</span>
@@ -83,28 +115,70 @@ export default function Cascades({
             </li>
           ))}
         </ul>
-        <p className="mt-4 max-w-[34ch] text-[12px] leading-relaxed text-ink-faint">
+        {samples.error && !list.length && (
+          <button onClick={samples.reload}
+                  className="mt-3 w-full border border-rule px-3 py-2 text-left text-[12px]
+                             leading-relaxed text-ink-soft transition-colors hover:bg-panel">
+            The list did not load. Tap to try again.
+          </button>
+        )}
+        <ModuleTag module="propagation" className="mt-5" />
+        <p className="mt-2 max-w-[34ch] text-[12px] leading-relaxed text-ink-faint">
           Kept beside the code, so a demonstration never depends on the network.
           One of them the detector gets wrong, on purpose.
         </p>
       </nav>
+
+      {loaded.error && !detail && (
+        <div className="mt-10 min-w-0 lg:mt-0">
+          <Failed error={loaded.error} onRetry={loaded.reload} what="this cascade" />
+        </div>
+      )}
 
       {detail && (
         <article className="mt-10 min-w-0 lg:mt-0">
           <header className="border-b border-rule-firm pb-6">
             <p className="eyebrow">The post that started it</p>
             <p className="mt-3 max-w-[68ch] text-[19px] leading-snug">{detail.text}</p>
-            <p className="mt-3 flex flex-wrap items-baseline gap-x-4 text-[12.5px] text-ink-faint">
+            <p className="mt-3 flex flex-wrap items-baseline gap-x-4 gap-y-1 text-[12.5px] text-ink-faint">
+              {detail.source_name && (
+                <span className="font-medium text-ink">{detail.source_name}</span>
+              )}
               <Account handle={detail.source_handle} />
               <span>{new Date(detail.created_at).toLocaleDateString("en-GB",
                 { day: "numeric", month: "long", year: "numeric" })}</span>
+            </p>
+
+            {/* What the post did on the platform, beside what the collector
+                reached. The two differ by a lot and the gap is the point: a
+                cascade here is a sample of the diffusion, never all of it. */}
+            <div className="mt-4 flex flex-wrap items-end justify-between gap-x-8 gap-y-4">
+              <dl className="flex flex-wrap gap-x-8 gap-y-3">
+                {([["likes", detail.likes], ["replies", detail.replies],
+                   ["reposts", detail.reposts],
+                   ["accounts collected", detail.shape.accounts]] as [string, number][])
+                  .map(([label, value]) => (
+                    <div key={label}>
+                      <dt className="eyebrow">{label}</dt>
+                      <dd className="tnum mt-1 font-mono text-[17px] leading-none">
+                        {value.toLocaleString("en")}
+                      </dd>
+                    </div>
+                  ))}
+              </dl>
               {detail.url && (
                 <a href={detail.url} target="_blank" rel="noreferrer"
-                   className="underline underline-offset-2 hover:text-ink">
-                  open on Bluesky
+                   /* the platform's own blue, so the button reads as a way out
+                      to Bluesky rather than as one more control of this page */
+                   style={{ backgroundColor: BLUESKY }}
+                   className="inline-flex items-center gap-2 px-4 py-2 text-[13px]
+                              font-medium text-white transition-opacity hover:opacity-85">
+                  <Butterfly />
+                  Open on Bluesky
+                  <span aria-hidden className="text-[14px] leading-none opacity-70">&#8599;</span>
                 </a>
               )}
-            </p>
+            </div>
           </header>
 
           <section className="border-b border-rule-firm py-5">
@@ -138,7 +212,8 @@ export default function Cascades({
 
           {busy && (
             <section className="border-b border-rule-firm py-7">
-              <Pending withCascade done={arriving} />
+              <Pending withCascade done={arriving} rejoined={rejoined} label={jobLabel}
+                       elapsed={elapsed} />
             </section>
           )}
 

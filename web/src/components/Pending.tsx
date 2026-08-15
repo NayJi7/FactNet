@@ -1,53 +1,73 @@
 import { useEffect, useState } from "react";
+import Spreading from "./Spreading";
 import type { Step } from "../lib/types";
 
 /**
  * What the interface shows while a reading is computed.
  *
- * A run takes a few seconds, and the first one of a session takes longer
- * because half a gigabyte of weights is loaded from disk. The wait is spent
- * saying what is coming and how long it usually takes, rather than animating a
- * fake progress bar: the engine returns one answer at the end and has no
- * intermediate progress to report, so claiming otherwise would be a lie drawn
- * in pixels.
+ * The engine reports each stage as it lands, so the ones already finished are
+ * shown with their real numbers and the ones still to come are named. The bar
+ * stays indeterminate: what is known is which stage is running, not how far
+ * through it the engine is, and a bar that implied otherwise would be a lie
+ * drawn in pixels.
+ *
+ * The names here have to match the stages the engine actually appends, in
+ * order. They drifted once, listing a figure as though it were a stage and
+ * omitting two real ones, which made the counter read "4 of 3".
  */
-const STAGES = [
+const TEXT_STAGES = [
   "reading what came in",
   "deciding whether it states a claim",
   "scoring the text, and every other model on it",
+];
+const CASCADE_STAGES = [
   "reading the shape of the cascade",
-  "replaying the verdict as the spread grew",
+  "asking what the text adds to it",
   "ranking who carried it",
 ];
+const VERDICT_STAGE = "settling the verdict";
 
-export default function Pending({ withCascade, done = [] }:
-                                { withCascade: boolean; done?: Step[] }) {
-  const [seconds, setSeconds] = useState(0);
+export default function Pending({ withCascade, done = [], rejoined = false, label,
+                                 elapsed = 0 }:
+                                { withCascade: boolean; done?: Step[];
+                                  rejoined?: boolean; label?: string;
+                                  elapsed?: number }) {
+  // The reading is older than this page whenever the page was reloaded, so the
+  // clock starts where the engine says the work started, not at zero.
+  const [seconds, setSeconds] = useState(() => Math.round(elapsed));
   useEffect(() => {
+    setSeconds(Math.round(elapsed));
     const timer = setInterval(() => setSeconds((s) => s + 1), 1000);
     return () => clearInterval(timer);
-  }, []);
+  }, [elapsed]);
 
-  const stages = withCascade ? STAGES : STAGES.slice(0, 3);
+  const stages = [...TEXT_STAGES, ...(withCascade ? CASCADE_STAGES : []), VERDICT_STAGE];
+  // a run that stops at the gate emits fewer stages than were named, and one
+  // that skips the ablation emits fewer still, so the count follows whichever
+  // is larger and never reads "7 of 6"
+  const total = Math.max(stages.length, done.length);
   const pending = stages.slice(done.length);
 
   return (
     <section className="settle" aria-live="polite" aria-busy="true">
-      <div className="border border-rule-firm bg-panel px-7 py-6">
-        <p className="eyebrow">Reading</p>
-        <div className="mt-3 flex flex-wrap items-baseline gap-x-5">
-          <span className="text-[40px] font-semibold leading-none tracking-[-0.03em] text-rule-firm">
-            &mdash;&mdash;
-          </span>
-          <span className="tnum font-mono text-[13px] text-ink-faint">
-            {done.length} of {stages.length} stages
-          </span>
-          <span className="tnum font-mono text-[13px] text-ink-faint">
-            {seconds}s elapsed
-          </span>
-        </div>
-        <div className="mt-6 h-[6px] max-w-[620px] overflow-hidden bg-sunk">
-          <div className="h-full w-1/3 animate-[sweep_1.5s_ease-in-out_infinite] bg-rule-firm" />
+      <div className="flex flex-wrap items-center gap-x-9 gap-y-5 border border-rule-firm bg-panel px-7 py-6">
+        <Spreading />
+        <div className="min-w-[260px] flex-1">
+          <p className="eyebrow">{rejoined ? "Reading, already under way" : "Reading"}</p>
+          {label && (
+            <p className="mt-1.5 max-w-[70ch] text-[13.5px] text-ink-soft">{label}</p>
+          )}
+          <div className="mt-3 flex flex-wrap items-baseline gap-x-5">
+            <span className="tnum font-mono text-[13px] text-ink-faint">
+              {done.length} of {total} stages
+            </span>
+            <span className="tnum font-mono text-[13px] text-ink-faint">
+              {seconds}s elapsed
+            </span>
+          </div>
+          <div className="mt-5 h-[6px] max-w-[620px] overflow-hidden bg-sunk">
+            <div className="h-full w-1/3 animate-[sweep_1.5s_ease-in-out_infinite] bg-rule-firm" />
+          </div>
         </div>
       </div>
 
@@ -84,9 +104,13 @@ export default function Pending({ withCascade, done = [] }:
       </ol>
 
       <p className="mt-6 max-w-[64ch] text-[12.5px] leading-relaxed text-ink-faint">
-        Usually five to twenty seconds. The first reading of a session is slower:
-        the transformers are half a gigabyte each and are loaded from disk on
-        demand, then kept in memory.
+        {rejoined
+          ? "This reading was already running when the page opened, so it is being "
+            + "rejoined rather than started again. Reloading does not cancel it, and "
+            + "the stages already computed are shown above."
+          : "Usually five to twenty seconds. The first reading of a session is slower: "
+            + "the transformers are half a gigabyte each and are loaded from disk on "
+            + "demand, then kept in memory."}
       </p>
     </section>
   );

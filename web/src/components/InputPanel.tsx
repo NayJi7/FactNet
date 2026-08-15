@@ -1,4 +1,5 @@
 import { useState } from "react";
+import Examples from "./Examples";
 import type { ModelCard } from "../lib/types";
 
 type Mode = "text" | "url" | "cascade";
@@ -45,6 +46,12 @@ export default function InputPanel({
     }
   };
 
+  // Ctrl or Cmd with Enter runs it. Enter alone still breaks the line, since
+  // the field holds a post and a post has paragraphs.
+  const sendOnEnter = (e: React.KeyboardEvent) => {
+    if (e.key === "Enter" && (e.metaKey || e.ctrlKey) && !busy) { e.preventDefault(); submit(); }
+  };
+
   const chosen = models.find((m) => m.key === model);
 
   return (
@@ -54,10 +61,15 @@ export default function InputPanel({
           <button
             key={option}
             onClick={() => setMode(option)}
+            disabled={busy && mode !== option}
+            title={busy && mode !== option
+              ? "A reading is under way. This opens again when it lands." : undefined}
             className={`-mb-px border-b-2 px-3 py-2 text-[13px] transition-colors ${
               mode === option
                 ? "border-ink font-medium text-ink"
-                : "border-transparent text-ink-faint hover:text-ink-soft"
+                : busy
+                  ? "border-transparent text-rule-firm"
+                  : "border-transparent text-ink-faint hover:text-ink-soft"
             }`}
           >
             {{ text: "Post", url: "Bluesky link", cascade: "Cascade" }[option]}
@@ -66,13 +78,17 @@ export default function InputPanel({
       </div>
 
       {mode === "text" && (
-        <textarea
-          value={text}
-          onChange={(e) => setText(e.target.value)}
-          rows={4}
-          className="w-full border border-rule bg-panel p-3 transition-colors focus:border-struct resize-y text-[14px] leading-relaxed"
-          placeholder="Paste the text of a post"
-        />
+        <>
+          <textarea
+            value={text}
+            onChange={(e) => setText(e.target.value)}
+            onKeyDown={sendOnEnter}
+            rows={4}
+            className="w-full border border-rule bg-panel p-3 transition-colors focus:border-struct resize-y text-[14px] leading-relaxed"
+            placeholder="Paste the text of a post"
+          />
+          <Examples onPick={setText} disabled={busy} />
+        </>
       )}
 
       {mode === "url" && (

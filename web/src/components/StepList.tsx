@@ -1,5 +1,6 @@
 import { useState } from "react";
 import FigureView from "./Figures";
+import ModuleTag from "./ModuleTag";
 import type { Step } from "../lib/types";
 
 /**
@@ -15,7 +16,7 @@ import type { Step } from "../lib/types";
 
 const STATUS: Record<Step["status"], { mark: string; tone: string; word: string }> = {
   ok:      { mark: "", tone: "text-ink-faint", word: "" },
-  skipped: { mark: "—", tone: "text-ink-faint", word: "not run" },
+  skipped: { mark: "·", tone: "text-ink-faint", word: "not run" },
   warning: { mark: "!", tone: "text-signal", word: "read the caveat" },
 };
 
@@ -58,10 +59,11 @@ export default function StepList({ steps }: { steps: Step[] }) {
           <li key={step.key}
               className="settle border-t border-rule-firm py-6 first:border-t-0 sm:grid sm:grid-cols-[112px_1fr] sm:gap-8"
               style={{ animationDelay: `${index * 45}ms` }}>
-            <div className="mb-2 flex items-baseline gap-2 sm:mb-0 sm:block">
+            <div className="mb-2 flex flex-wrap items-baseline gap-x-3 gap-y-1 sm:mb-0 sm:block">
               <span className="tnum font-mono text-[26px] font-normal leading-none text-rule-firm">
                 {String(index + 1).padStart(2, "0")}
               </span>
+              <ModuleTag module={step.module} className="sm:mt-2.5 sm:flex" />
               {status.word && (
                 <span className={`block text-[11px] sm:mt-1.5 ${status.tone}`}>
                   {status.mark} {status.word}
@@ -93,12 +95,14 @@ export default function StepList({ steps }: { steps: Step[] }) {
                   )}
                   {/* Two abreast once there is room. Attention beside occlusion
                       is also the comparison the pair exists to invite, so this
-                      shortens the page and sharpens the point at once. A graph
-                      or a curve keeps the full measure. */}
+                      shortens the page and sharpens the point at once. A graph,
+                      a curve, and the model comparison keep the full measure:
+                      the last one carries the evidence for every model at once
+                      and turns unreadable in half a column. */}
                   <div className="grid gap-x-10 xl:grid-cols-2">
                     {step.figures.map((figure, i) => (
                       <div key={i}
-                           className={figure.kind === "graph" || figure.kind === "line"
+                           className={["graph", "line", "compare"].includes(figure.kind)
                              ? "xl:col-span-2" : "min-w-0"}>
                         <FigureView figure={figure} />
                       </div>

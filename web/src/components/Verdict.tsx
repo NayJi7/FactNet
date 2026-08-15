@@ -1,3 +1,4 @@
+import Breakdown from "./Breakdown";
 import type { Trace } from "../lib/types";
 
 /**
@@ -47,6 +48,8 @@ export default function Verdict({ trace }: { trace: Trace }) {
           </div>
         </div>
       )}
+
+      <Breakdown trace={trace} />
 
       {trace.warnings.length > 0 && (
         <ul className="mt-6 max-w-[72ch] space-y-2">

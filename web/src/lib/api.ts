@@ -34,23 +34,30 @@ export const getVerdict = (payload: {
 export const fetchCascade = (url: string) =>
   call<{ cascade: Record<string, any> }>("/fetch", { url });
 
+export interface JobInfo {
+  id: string;
+  tab: string;
+  label: string;
+  state: "running" | "done" | "failed";
+  stages: number;
+  elapsed: number;
+}
+
+/** What the engine is reading right now, if anything. */
+export const getCurrentJob = () => call<{ job: JobInfo | null }>("/jobs/current");
+
 /**
- * The same reading, consumed stage by stage.
+ * Consume one reading, stage by stage, off an open response.
  *
- * EventSource cannot POST, so the stream is read off the fetch body directly.
  * Frames are `event: name` then `data: json`, separated by a blank line, and a
  * chunk can split one in half: whatever follows the last blank line is held
  * back until the rest of it arrives.
  */
-export async function streamVerdict(
-  payload: Record<string, unknown>,
+async function consume(
+  response: Response,
   onStep: (step: Step) => void,
+  onJob?: (job: JobInfo) => void,
 ): Promise<Trace> {
-  const response = await fetch("/api/verdict/stream", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(payload),
-  });
   if (!response.ok || !response.body) {
     const detail = await response.json().catch(() => null);
     throw new Error(detail?.detail ?? `request failed (${response.status})`);
@@ -75,6 +82,7 @@ export async function streamVerdict(
       if (!name || !body) continue;
       const parsed = JSON.parse(body);
       if (name === "step") { steps.push(parsed); onStep(parsed); }
+      else if (name === "job") onJob?.(parsed);
       else if (name === "done") summary = parsed;
       else if (name === "failed") failure = parsed.detail;
     }
@@ -82,4 +90,35 @@ export async function streamVerdict(
   if (failure) throw new Error(failure);
   if (!summary) throw new Error("the reading ended before it produced a verdict");
   return { ...summary, steps } as Trace;
+}
+
+/**
+ * Ask for a reading and follow it.
+ *
+ * EventSource cannot POST, so the stream is read off the fetch body directly.
+ * The reading is a job on the server: this connection is a viewer of it, and
+ * dropping the connection does not stop the work.
+ */
+export async function streamVerdict(
+  payload: Record<string, unknown>,
+  onStep: (step: Step) => void,
+  onJob?: (job: JobInfo) => void,
+): Promise<Trace> {
+  return consume(
+    await fetch("/api/verdict/stream", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+    }),
+    onStep, onJob,
+  );
+}
+
+/** Rejoin a reading already under way, replaying the stages it has produced. */
+export async function followJob(
+  id: string,
+  onStep: (step: Step) => void,
+  onJob?: (job: JobInfo) => void,
+): Promise<Trace> {
+  return consume(await fetch(`/api/jobs/${id}/stream`), onStep, onJob);
 }

@@ -375,6 +375,79 @@ function Compare({ data }: { data: Figure["data"] }) {
           </span>
         )}
       </div>
+      <Disagreement rows={rows} why={data.why ?? []} />
+    </div>
+  );
+}
+
+/**
+ * Why the models differ on this post, which is the question a viewer asks the
+ * moment they see five answers and one input.
+ *
+ * The answer is never that one model is better: on the held-out benchmark none
+ * of these separates from any other. It is that they weigh different objects,
+ * so what each one actually weighed is shown, measured on this input rather
+ * than described in general. A token in ink pushed that model towards
+ * reliable, one in amber pushed it the other way.
+ */
+function Disagreement({ rows, why }: { rows: any[]; why: string[] }) {
+  const withTokens = rows.filter((r) => r.tokens?.length);
+  if (!withTokens.length) return null;
+
+  return (
+    <div className="mt-6 border-t border-rule-firm pt-4">
+      <p className="eyebrow">Why they disagree</p>
+
+      <div className="mt-3 space-y-3">
+        {withTokens.map((row: any) => (
+          <div key={row.key} className="grid gap-x-4 gap-y-1 sm:grid-cols-[160px_1fr]">
+            <div className="min-w-0">
+              <p className="truncate text-[12.5px]" title={row.model}>
+                {row.primary && <span className="mr-1 text-signal">▸</span>}
+                <span className={row.primary ? "font-semibold" : "text-ink-soft"}>
+                  {row.model}
+                </span>
+              </p>
+              <p className={`text-[11px] ${row.fragmented ? "text-signal" : "text-ink-faint"}`}>
+                reads {row.basis}
+              </p>
+            </div>
+            <div className="flex flex-wrap items-center gap-x-2.5 gap-y-1.5">
+              {row.tokens.map(([token, value]: [string, number], i: number) => (
+                <span key={`${token}-${i}`}
+                      className="inline-flex items-baseline gap-1 font-mono text-[11.5px]">
+                  <span className="border-b-2 px-0.5"
+                        style={{
+                          borderColor: value >= 0 ? INK : SIGNAL,
+                          // the weight of the mark is the size of the effect, so
+                          // a glance ranks them without reading a single number
+                          opacity: 0.45 + 0.55 * Math.min(1, Math.abs(value)),
+                        }}>
+                    {token}
+                  </span>
+                  <span className="tnum text-[10.5px] text-ink-faint">
+                    {value >= 0 ? "+" : ""}{value.toFixed(2)}
+                  </span>
+                </span>
+              ))}
+            </div>
+          </div>
+        ))}
+      </div>
+
+      {why.length > 0 && (
+        <div className="mt-4 space-y-2 border-t border-rule pt-3">
+          {why.map((line, i) => (
+            <p key={i} className="max-w-[78ch] text-[12.5px] leading-relaxed text-ink-soft">
+              {line}
+            </p>
+          ))}
+        </div>
+      )}
+      <p className="mt-2 text-[11px] text-ink-faint">
+        A mark underlined in ink pushed that model towards reliable, one in amber
+        towards misleading. Darker means it mattered more.
+      </p>
     </div>
   );
 }

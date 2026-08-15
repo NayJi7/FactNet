@@ -8,6 +8,9 @@ export interface Figure {
   caption: string;
 }
 
+/** Which half of the project a stage or a table comes from. */
+export type Module = "content" | "propagation" | "both";
+
 export interface Step {
   key: string;
   title: string;
@@ -16,6 +19,7 @@ export interface Step {
   figures: Figure[];
   status: "ok" | "skipped" | "warning";
   note: string;
+  module: Module | "";
 }
 
 export interface Trace {
@@ -62,6 +66,7 @@ export interface SampleDetail {
   uri: string;
   url: string;
   source_handle: string;
+  source_name: string;
   text: string;
   created_at: string;
   reposts: number;
