@@ -34,7 +34,7 @@ BENCHMARKS = [
         "role": "propagation, second benchmark",
         "size": "5,464 cascades",
         "labels": "fact-checkers, through FakeNewsNet",
-        "note": "Larger and easier; it is where the 0.917 headline comes from, "
+        "note": "Larger and easier. It is where the 0.920 headline comes from, "
                 "and where cascade shapes run opposite to PolitiFact.",
     },
     {
@@ -43,7 +43,8 @@ BENCHMARKS = [
         "size": "10,240 train / 1,267 test statements",
         "labels": "PolitiFact rulings, collapsed to two classes",
         "note": "Short, context-free claims. Its difficulty is the reason the "
-                "content ceiling sits near 0.63.",
+                "content ceiling sits near 0.63, and reading a full article "
+                "instead lifts the same approach to 0.805.",
     },
 ]
 

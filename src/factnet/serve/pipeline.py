@@ -23,7 +23,10 @@ from factnet.serve import structure as structure_module
 from factnet.serve.registry import by_key, primary
 from factnet.serve.trace import Figure, Step, Trace, confidence_from
 
-CHECKWORTHY_FLOOR = 0.3
+# One marker of the rule set is worth 0.25, so this floor admits a sentence
+# carrying a single one and rejects a sentence carrying none. Raising it to 0.3
+# demanded two markers and rejected most single-clause headlines.
+CHECKWORTHY_FLOOR = 0.25
 
 
 def _parse_step(trace: Trace, text: str, data, handles, origin: str) -> bool:
@@ -33,9 +36,10 @@ def _parse_step(trace: Trace, text: str, data, handles, origin: str) -> bool:
     if data is not None:
         measured = structure_module.shape(data)
         detail |= measured
-        # six of the ten profile slots were unavailable from the endpoints the
-        # collector used; a cascade whose features are all constant must not be
-        # scored by a model that expects them to vary
+        # three of the ten profile slots are always zero, because Bluesky
+        # exposes no verification flag, no geolocation and no list membership.
+        # A cascade whose features are all constant must not be scored by a
+        # model that expects them to vary.
         varying = int((data.x.std(dim=0) > 1e-9).sum())
         detail["varying_features"] = varying
         detail["total_features"] = int(data.x.size(1))
@@ -48,7 +52,8 @@ def _parse_step(trace: Trace, text: str, data, handles, origin: str) -> bool:
                             f"{detail.get('direct', 0)} direct shares"
                             if data is not None else "a text, with no cascade"),
                    detail=detail,
-                   status="ok" if data is not None or text.strip() else "warning"))
+                   status="ok" if data is not None or text.strip() else "warning",
+                   module="both"))
     return has_features
 
 
@@ -57,9 +62,9 @@ def _checkworthy_step(trace: Trace, text: str) -> bool:
     rules = checkworthy_rules(text)
     passes = value >= CHECKWORTHY_FLOOR
     trace.add(Step(
-        key="checkworthy", title="Is this a claim worth checking?",
+        key="checkworthy", title="Is this a claim worth checking?", module="content",
         summary=(f"check-worthiness {value:.2f}, "
-                 f"{'above' if passes else 'below'} the {CHECKWORTHY_FLOOR:.1f} floor"),
+                 f"{'above' if passes else 'below'} the {CHECKWORTHY_FLOOR:.2f} floor"),
         detail={"score": round(value, 3), "floor": CHECKWORTHY_FLOOR,
                 "rules": {k: bool(v) for k, v in rules.items()}},
         status="ok" if passes else "skipped",
@@ -68,6 +73,30 @@ def _checkworthy_step(trace: Trace, text: str) -> bool:
              "A verdict is not produced for them, which is a decision rather "
              "than a failure."))
     return passes
+
+
+# Words that carry almost no information in English but appear in nearly every
+# English sentence. A text that contains none of them across a dozen words is
+# very likely not English, which matters because every content model here was
+# trained on English only and will answer anyway.
+# "no", "as", "e", "os" and the like are omitted deliberately: they are common
+# words in Romance languages too, and a marker that fires on both proves
+# nothing about which language it read.
+ENGLISH_MARKERS = frozenset(
+    "the a an and or but of to in on at for with from by is are was were be been "
+    "this that these those it its he she they we you not has have had will "
+    "would can could should about after before over under than then".split())
+
+
+def _looks_english(text: str) -> bool:
+    words = [w.strip(".,!?;:\"'()[]").lower() for w in text.split()]
+    words = [w for w in words if w]
+    # A headline can be a dozen content words with one article in it, so the
+    # test only runs on a sentence long enough for the absence to mean
+    # something, and the bar is set where a real English post clears it.
+    if len(words) < 12:
+        return True
+    return sum(1 for w in words if w in ENGLISH_MARKERS) / len(words) >= 0.10
 
 
 def _content_step(trace: Trace, text: str, model_key: str,
@@ -80,6 +109,10 @@ def _content_step(trace: Trace, text: str, model_key: str,
     the interface says which.
     """
     card = by_key(model_key)
+    if not _looks_english(text):
+        trace.warn("This text does not look like English. Every content model "
+                   "here was fine-tuned on English only, so its reading of this "
+                   "post is not evidence about the post.")
     probability, extra = content_module.score(text, model_key)
     figures: list[Figure] = []
 
@@ -110,7 +143,7 @@ def _content_step(trace: Trace, text: str, model_key: str,
         trace.warn(f"Content models not available: {', '.join(missing)}.")
 
     trace.add(Step(
-        key="content",
+        key="content", module="content",
         title="What the text says" + (" (not counted)" if advisory else ""),
         summary=f"{card.name} puts p(reliable) at {probability:.3f}"
                 + (", shown but excluded from the verdict" if advisory else ""),
@@ -127,7 +160,9 @@ def _content_step(trace: Trace, text: str, model_key: str,
               if advisory else "")
              + ("The models disagree by "
               f"{comparison.data['spread']:.2f} on this input, which is what a "
-              "content ceiling near 0.63 looks like from the inside."
+              "content ceiling near 0.63 looks like from the inside. That "
+              "ceiling belongs to LIAR's short claims, and the same approach "
+              "reads a full news article at 0.805."
               if comparison.data["spread"] > 0.2 else "")))
     return probability
 
@@ -143,7 +178,7 @@ def _structure_step(trace: Trace, data, handles, origin: str, has_features: bool
                structure_module.shape_figure(measured, corpus),
                structure_module.early_curve(data, checkpoint)]
     trace.add(Step(
-        key="structure", title="How it travelled",
+        key="structure", title="How it travelled", module="propagation",
         summary=f"{by_key(key).name} puts p(reliable) at {probability:.3f}",
         detail={"model": by_key(key).name, "model_key": key,
                 "p_reliable": round(probability, 4), "why_this_model": why} | measured,
@@ -151,36 +186,52 @@ def _structure_step(trace: Trace, data, handles, origin: str, has_features: bool
     return probability, checkpoint
 
 
-# each platform gets the pair trained on it: showing the ablation with a
-# benchmark model on a Bluesky cascade would contradict the transfer result the
-# same interface reports two steps earlier
-ABLATION_PAIR = {
-    "bluesky": ("bigcn-collected.pt", "bigcn-collected-score.pt"),
-    "benchmark": ("bigcn-upfd-profile.pt", "bigcn-upfd-profile-score.pt"),
+# The ablation has to run on the detector that produced the verdict above it,
+# not on one chosen again from the origin. Deciding twice let a pasted cascade
+# be read by the benchmark model in one step and by the Bluesky model in the
+# next, and the interface then printed the second number under the first one's
+# name. The pairing is keyed on the checkpoint itself so the two cannot drift.
+SCORED_FOR = {
+    "bigcn-upfd-profile.pt": "bigcn-upfd-profile-score.pt",
+    "bigcn-collected.pt": "bigcn-collected-score.pt",
 }
 
 
-def _integration_step(trace: Trace, data, content_p: float,
-                      origin: str) -> float | None:
-    """The ablation, run on this cascade: the verdict with and without the text."""
+def _integration_step(trace: Trace, data, content_p: float, checkpoint: str,
+                      counted: bool = True) -> float | None:
+    """The ablation, run on this cascade: the verdict with and without the text.
+
+    ``counted`` is false when the content reading it attaches was excluded by
+    the check-worthiness gate. The stage still runs, because it is the one
+    place the two modules meet and dropping it silently would leave the reader
+    to guess why a promised stage never appeared, but its result is then shown
+    and not used.
+    """
     from factnet.graph.integration import attach_scores
 
-    plain, scored_checkpoint = ABLATION_PAIR.get(
-        "bluesky" if origin in ("bluesky", "url", "cascade") else "benchmark")
+    scored_checkpoint = SCORED_FOR.get(checkpoint)
+    if scored_checkpoint is None:
+        trace.warn("No scored counterpart exists for the detector chosen here, "
+                   "so the ablation is not shown.")
+        return None
     scored = attach_scores([data], [content_p])[0]
     try:
         with_score = structure_module.verdict(scored, scored_checkpoint)
-        without = structure_module.verdict(data, plain)
+        without = structure_module.verdict(data, checkpoint)
     except Exception:
         trace.warn("The integrated model does not accept this cascade's feature "
                    "layout, so the ablation is not shown.")
         return None
     trace.add(Step(
-        key="integration", title="Does the text change the structural verdict?",
+        key="integration", title="Does the text change the structural verdict?"
+              + ("" if counted else " (not counted)"),
+        module="both", status="ok" if counted else "warning",
         summary=f"p(reliable) moves from {without:.3f} to {with_score:.3f} "
-                f"when the content score is attached",
+                f"when the content score is attached"
+                + ("" if counted else ", shown but excluded from the verdict"),
         detail={"without_score": round(without, 4), "with_score": round(with_score, 4),
-                "delta": round(with_score - without, 4), "content_score": round(content_p, 4)},
+                "delta": round(with_score - without, 4),
+                "content_score": round(content_p, 4), "counted": counted},
         figures=[Figure(
             kind="bars", title="Ablation on this cascade",
             data={"rows": [{"metric": "structure alone", "this": round(without, 4)},
@@ -189,8 +240,11 @@ def _integration_step(trace: Trace, data, content_p: float,
             caption="The article measures this gain at +0.056 macro-F1 on PolitiFact "
                     "with light features, and nothing where the cascade already "
                     "carries text.")],
-        note="This is a demonstration configuration: the published ablation is a "
-             "macro-F1 over a whole test split, not a probability on one cascade."))
+        note=("The content reading attached here did not clear the "
+              "check-worthiness floor, so this ablation is shown for inspection "
+              "and takes no part in the verdict. " if not counted else "")
+             + "This is a demonstration configuration: the published ablation is a "
+               "macro-F1 over a whole test split, not a probability on one cascade."))
     return with_score
 
 
@@ -209,7 +263,7 @@ def _influence_step(trace: Trace, data, handles) -> None:
              "pagerank": round(pagerank[n], 4), "k_core": round(coreness[n], 4)}
             for n, s in top]
     trace.add(Step(
-        key="influence", title="Who carried it",
+        key="influence", title="Who carried it", module="propagation",
         summary=f"top {len(rows)} accounts by composite influence",
         detail={"formula": "0.5 reach + 0.3 PageRank + 0.2 k-core"},
         figures=[Figure(kind="table", title="Influence ranking",
@@ -257,7 +311,7 @@ def run(text: str = "", cascade: dict | None = None, data=None,
     has_features = _parse_step(trace, text, data, handles, origin)
 
     has_cascade = data is not None and data.num_nodes > 1
-    content_p = None
+    content_p = advisory_p = None
     if text.strip():
         if _checkworthy_step(trace, text):
             content_p = _content_step(trace, text, content_model)
@@ -273,16 +327,20 @@ def run(text: str = "", cascade: dict | None = None, data=None,
             trace.warn("The text did not pass the check-worthiness stage, so its "
                        "content reading is shown for inspection only and takes no "
                        "part in the verdict.")
-            _content_step(trace, text, content_model, advisory=True)
+            advisory_p = _content_step(trace, text, content_model, advisory=True)
 
     structure_p = None
     if has_cascade:
-        structure_p, _ = _structure_step(trace, data, handles, origin,
-                                         has_features, corpus, graph_model,
-                                         kinds, followers)
-        if content_p is not None and has_features:
-            combined = _integration_step(trace, data, content_p, origin)
-            if combined is not None:
+        structure_p, checkpoint = _structure_step(trace, data, handles, origin,
+                                                  has_features, corpus, graph_model,
+                                                  kinds, followers)
+        # the ablation runs on whichever reading exists, including one the gate
+        # excluded, but only a counted reading is allowed to move the verdict
+        reading = content_p if content_p is not None else advisory_p
+        if reading is not None and has_features:
+            combined = _integration_step(trace, data, reading, checkpoint,
+                                         counted=content_p is not None)
+            if combined is not None and content_p is not None:
                 structure_p = combined
         _influence_step(trace, data, handles)
 
@@ -297,7 +355,7 @@ def run(text: str = "", cascade: dict | None = None, data=None,
                         "content_model": content_model, "graph_model": graph_model,
                         "read_structure": data is not None}
     trace.add(Step(
-        key="verdict", title="Verdict",
+        key="verdict", title="Verdict", module="both",
         summary=(f"{trace.label}, {trace.confidence} confidence"
                  if final is not None else "no verdict could be formed"),
         detail=trace.provenance | {"p_reliable": final},

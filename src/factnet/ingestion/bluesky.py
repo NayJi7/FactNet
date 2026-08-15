@@ -152,7 +152,8 @@ def _walk_replies(node: dict, parent: str, nodes: dict, edges: list) -> None:
         if not did:
             continue
         nodes.setdefault(did, {"did": did, "handle": author.get("handle", ""),
-                               "kind": "reply", "profile": profile_features(author)})
+                               "kind": "reply", "profile": profile_features(author),
+                               "display_name": author.get("displayName", "")})
         edges.append({"source": parent, "target": did, "kind": "reply"})
         _walk_replies(reply, did, nodes, edges)
 
@@ -170,7 +171,13 @@ def collect_cascade(client: BlueskyClient, post: dict, thread: dict | None = Non
 
     nodes: dict[str, dict] = {
         root: {"did": root, "handle": author.get("handle", ""), "kind": "source",
-               "profile": profile_features(author)}
+               "profile": profile_features(author),
+               "display_name": author.get("displayName", ""),
+               "text": record.get("text", ""),
+               "created_at": record.get("createdAt", ""),
+               "likes": int(post.get("likeCount", 0)),
+               "replies": int(post.get("replyCount", 0)),
+               "reposts": int(post.get("repostCount", 0))}
     }
     edges: list[dict] = []
 
@@ -179,7 +186,8 @@ def collect_cascade(client: BlueskyClient, post: dict, thread: dict | None = Non
         if not did or did in nodes:
             continue
         nodes[did] = {"did": did, "handle": account.get("handle", ""), "kind": "repost",
-                      "profile": profile_features(account)}
+                      "profile": profile_features(account),
+                      "display_name": account.get("displayName", "")}
         edges.append({"source": root, "target": did, "kind": "repost"})
 
     thread = thread if thread is not None else client.thread(uri)

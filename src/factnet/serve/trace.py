@@ -39,6 +39,16 @@ class Figure:
             raise ValueError(f"unknown figure kind: {self.kind}")
 
 
+# Which half of the project a stage belongs to. The work is split into two
+# modules that are written up as separate papers, and a viewer who cannot tell
+# which one produced a number cannot tell which paper to check it against.
+MODULES = {
+    "content": "Content",                          # the NLP module, on the text
+    "propagation": "Propagation",                  # the graph module, on the cascade
+    "both": "Both",                                # where the two meet
+}
+
+
 @dataclass
 class Step:
     """One stage of the reasoning, with what it concluded and why."""
@@ -50,6 +60,11 @@ class Step:
     figures: list[Figure] = field(default_factory=list)
     status: str = "ok"                             # ok | skipped | warning
     note: str = ""                                 # a caveat worth reading
+    module: str = ""                               # content | propagation | both
+
+    def __post_init__(self) -> None:
+        if self.module and self.module not in MODULES:
+            raise ValueError(f"unknown module: {self.module}")
 
 
 @dataclass

@@ -92,6 +92,8 @@ def detail(index: int) -> dict | None:
         "graph_caption": figure.caption,
         "people": people,
         "people_shown": len(people),
+        "source_name": next((n.get("display_name", "") for n in nodes
+                             if n.get("kind") == "source"), ""),
     }
 
 
@@ -131,7 +133,7 @@ def build(count_per_bucket: int = 1) -> list[dict]:
         "correct and large": "A large cascade the detector reads correctly.",
         "correct and small": "A small cascade, where the structural signal is thin.",
         "wrong": "The detector is wrong on this one. Kept deliberately: a model at "
-                 "0.787 macro-F1 is wrong about one cascade in five.",
+                 "0.768 macro-F1 is wrong about one cascade in four.",
         "misleading source": "Linked to an outlet rated low for factual reporting.",
     }
 

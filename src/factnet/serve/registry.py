@@ -77,7 +77,7 @@ CONTENT_MODELS = (
 GRAPH_MODELS = (
     ModelCard(
         key="bigcn-upfd-profile", name="Bi-GCN, benchmark (profile)", kind="graph",
-        macro_f1=0.787, trained_on="UPFD PolitiFact, account features",
+        macro_f1=0.776, trained_on="UPFD PolitiFact, account features",
         path="graph/bigcn-upfd-profile.pt", primary=True,
         note="The propagation model of record for cascades that carry account features.",
     ),
@@ -89,7 +89,7 @@ GRAPH_MODELS = (
     ),
     ModelCard(
         key="bigcn-collected", name="Bi-GCN, trained on Bluesky", kind="graph",
-        macro_f1=0.787, trained_on="the 400 collected cascades",
+        macro_f1=0.768, trained_on="the 400 collected cascades",
         path="graph/bigcn-collected.pt",
         note="The model to apply to a real Bluesky cascade. Trained on the target "
              "platform because the benchmark model does not survive the move.",
@@ -102,12 +102,12 @@ GRAPH_MODELS = (
              "structural claim, and the fallback when account features are missing.",
     ),
     ModelCard(
-        key="gcn-upfd-profile", name="GCN, benchmark", kind="graph", macro_f1=0.765,
+        key="gcn-upfd-profile", name="GCN, benchmark", kind="graph", macro_f1=0.772,
         trained_on="UPFD PolitiFact, account features", path="graph/gcn-upfd-profile.pt",
         note="Plain graph convolution, kept to show what the bidirectional design buys.",
     ),
     ModelCard(
-        key="gat-upfd-profile", name="GAT, benchmark", kind="graph", macro_f1=0.765,
+        key="gat-upfd-profile", name="GAT, benchmark", kind="graph", macro_f1=0.771,
         trained_on="UPFD PolitiFact, account features", path="graph/gat-upfd-profile.pt",
         note="Attention over neighbours, same input as the GCN.",
     ),

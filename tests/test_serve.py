@@ -241,3 +241,40 @@ def test_the_stream_sends_each_stage_as_it_lands():
     assert [s["key"] for s in plain["steps"]] == streamed
     assert data[-1]["label"] == plain["label"]
     assert "steps" not in data[-1]        # the summary does not repeat them
+
+
+def test_every_model_card_matches_the_measurement_it_quotes():
+    """A card's macro-F1 must be the number its experiment actually wrote.
+
+    The dashboard shows each verdict beside the score the model earned, which
+    only means something if that score is current. These drifted once already,
+    by as much as 0.028, because they were literals nothing checked.
+    """
+    import json
+    from pathlib import Path
+
+    from factnet.serve.registry import by_key
+
+    results = Path(__file__).resolve().parents[1] / "data" / "results"
+    load = lambda name: json.loads((results / f"{name}.json").read_text())  # noqa: E731
+
+    table1 = load("table1_3seeds")["politifact/profile"]
+    expected = {
+        "gcn-upfd-profile": table1["GCN"]["mean"],
+        "gat-upfd-profile": table1["GAT"]["mean"],
+        "bigcn-upfd-profile": table1["Bi-GCN"]["mean"],
+        "bigcn-collected": load("confound")["cascade split, all sizes"]["detector"]["mean"],
+    }
+    for key, measured in expected.items():
+        card = by_key(key)
+        assert abs(card.macro_f1 - measured) < 0.0005, (
+            f"{key} advertises {card.macro_f1}, the experiment wrote {measured:.4f}")
+
+
+def test_the_headline_numbers_come_from_the_result_files():
+    """No headline is a literal, so a rerun cannot leave one behind."""
+    from factnet.serve.results import headlines
+
+    values = {h["label"]: h["value"] for h in headlines()}
+    assert values, "no headlines were built"
+    assert all(h["module"] in {"content", "propagation", "both"} for h in headlines())
