@@ -85,7 +85,8 @@ def _graph() -> dict | None:
         rows.append(["GossipCop", "bert"]
                     + [_pm(gossipcop[m]) for m in ("GCN", "GAT", "Bi-GCN")])
     return {
-        "key": "graph", "module": "propagation", "title": "Propagation detection",
+        "key": "graph", "short": "Detection", "module": "propagation",
+        "title": "Propagation detection",
         "unit": "macro-F1, mean of three seeds", "best": "Bi-GCN",
         "columns": ["Dataset", "Features", "GCN", "GAT", "Bi-GCN"], "rows": rows,
         "reading": "The bidirectional design leads everywhere, and the margin runs "
@@ -116,7 +117,7 @@ def _trivial() -> dict | None:
                      _signed(cell["gap"]), f"[{low:+.3f}, {high:+.3f}]",
                      "yes" if cell["separates"] else "no"])
     return {
-        "key": "trivial", "module": "propagation",
+        "key": "trivial", "short": "Against no edges", "module": "propagation",
         "title": "Against a model that reads no edge",
         "unit": "macro-F1, and a paired bootstrap on the difference",
         "columns": ["Dataset", "Features", "Strongest edgeless baseline",
@@ -154,7 +155,7 @@ def _early() -> dict | None:
             continue
         rows.append([corpus, model] + [_pm(cells.get(level)) for level in levels])
     return {
-        "key": "early", "module": "propagation",
+        "key": "early", "short": "How early", "module": "propagation",
         "title": "Detection against the share of the cascade observed",
         "unit": "macro-F1", "columns": ["Corpus, features", "Model", *levels],
         "rows": rows, "best": None,
@@ -180,7 +181,7 @@ def _gap() -> dict | None:
                      _signed(cell["gap_vs_edgeless"]),
                      f"[{low:+.3f}, {high:+.3f}]"])
     return {
-        "key": "gap", "module": "propagation",
+        "key": "gap", "short": "The paired test", "module": "propagation",
         "title": "Does the graph separate from a model with no edges?",
         "unit": "GossipCop bert at 20% of the cascade",
         "columns": ["Model", "Macro-F1", "Gap vs edgeless", "95% interval"],
@@ -202,7 +203,7 @@ def _ood() -> dict | None:
                                 ("Structure only", report.get("structure only")))
             if cell]
     return {
-        "key": "ood", "module": "propagation",
+        "key": "ood", "short": "Cross-platform", "module": "propagation",
         "title": "Cross-platform transfer to Bluesky", "unit": "macro-F1",
         "columns": ["Variant", "In domain", "Bluesky", "Strict subset"],
         "rows": rows, "best": None,
@@ -221,7 +222,7 @@ def _adaptation() -> dict | None:
     rows = [[row["cascades"], _pm(row["scratch"]), _pm(row["matched"]),
              _pm(row["published"])] for row in report["rows"]]
     return {
-        "key": "adaptation", "module": "propagation",
+        "key": "adaptation", "short": "Cost of recovery", "module": "propagation",
         "title": "How much target data recovery needs",
         "unit": f"macro-F1, {report['epochs']} epochs in every arm",
         "columns": ["Collected cascades used", "From scratch",
@@ -249,7 +250,7 @@ def _confound() -> dict | None:
              cell["test_cascades"]]
             for key, cell in report.items() if key in labels]
     return {
-        "key": "confound", "module": "propagation",
+        "key": "confound", "short": "The size confound", "module": "propagation",
         "title": "What the collected labels are predictable from",
         "unit": "macro-F1, chance is 0.500",
         "columns": ["Condition", "One size threshold", "Bi-GCN", "Test cascades"],
@@ -278,7 +279,7 @@ def _liar() -> dict | None:
         rows.append([name, _round(cell["macro_f1"]), f"[{low:.3f}, {high:.3f}]",
                      _signed(gap["point"]) if gap else "baseline"])
     return {
-        "key": "nlp", "module": "content", "title": "Content detection on LIAR",
+        "key": "nlp", "short": "On LIAR", "module": "content", "title": "Content detection on LIAR",
         "unit": "macro-F1, with a paired bootstrap against the bag of words",
         "columns": ["Model", "Macro-F1", "95% interval", "Gap vs TF-IDF"],
         "rows": rows, "best": None,
@@ -303,7 +304,7 @@ def _article_level() -> dict | None:
         rows.append([corpus.capitalize(), _round(cell["macro_f1"]),
                      f"[{low:.3f}, {high:.3f}]", cell["train"], cell["test"]])
     return {
-        "key": "article", "module": "content",
+        "key": "article", "short": "On full articles", "module": "content",
         "title": "The same idea on full news articles",
         "unit": "macro-F1, logistic regression on the article embedding",
         "columns": ["Corpus", "Macro-F1", "95% interval", "Train", "Test"],
@@ -332,7 +333,7 @@ def _gate() -> dict | None:
          f"{reach['share']:.1%}, mean score {reach['mean_score']}"],
     ]
     return {
-        "key": "gate", "module": "content",
+        "key": "gate", "short": "The gate", "module": "content",
         "title": "The check-worthiness gate, audited",
         "unit": f"floor {report['floor']}, on 165 annotated and "
                 f"{reach['posts']} source-labelled posts",
@@ -358,7 +359,7 @@ def _transfer() -> dict | None:
                      _round(row["macro_f1"]), f"[{low:.3f}, {high:.3f}]",
                      f"{row['predicted_reliable']:.1%}"])
     return {
-        "key": "transfer", "module": "content",
+        "key": "transfer", "short": "Off-platform", "module": "content",
         "title": "Off the training platform", "unit": "macro-F1",
         "columns": ["Model", "LIAR", "Collected posts", "95% interval",
                     "Answered reliable"],
@@ -375,7 +376,7 @@ def _transfer() -> dict | None:
 # --------------------------------------------------------------------------
 
 INTEGRATION = {
-    "key": "integration", "module": "both", "title": "Integration ablation",
+    "key": "integration", "short": "Integration", "module": "both", "title": "Integration ablation",
     "unit": "macro-F1, mean of three seeds",
     "columns": ["Dataset", "Features", "Graph only", "+ random score",
                 "+ content score"],
@@ -416,7 +417,7 @@ def _root_identity() -> dict | None:
          f"{share:.0%} of the roots checked"],
     ]
     return {
-        "key": "root", "module": "propagation",
+        "key": "root", "short": "The root feature", "module": "propagation",
         "title": "What sits at the root of a cascade",
         "unit": "UPFD PolitiFact, bert features",
         "columns": ["Measure", "Count", "Reading"], "rows": rows, "best": None,
@@ -438,7 +439,7 @@ def _influence_weights() -> dict | None:
              round(row["spearman"], 4), f"{row['top_k_shared']} of {report['top_k']}"]
             for row in report["rows"]]
     return {
-        "key": "weights", "module": "propagation",
+        "key": "weights", "short": "Influence weights", "module": "propagation",
         "title": f"Does the influence ranking depend on the weights? ({reference} is ours)",
         "unit": "Spearman against the reference ranking, and overlap of the top 100",
         "columns": ["Weights on reach / PageRank / k-core", "Spearman",

@@ -20,6 +20,7 @@ import type { Module } from "../lib/types";
  */
 interface Table {
   key: string;
+  short?: string;
   module: Module;
   title: string;
   unit: string;
@@ -153,7 +154,7 @@ export default function Results() {
   return (
     <div className="xl:grid xl:grid-cols-[172px_1fr] xl:gap-x-12">
       <nav className="hidden xl:block">
-        <div className="sticky top-28 max-h-[72vh] overflow-y-auto pb-4">
+        <div className="sticky top-28 pb-4">
           <p className="eyebrow mb-1.5">On this page</p>
           {ORDER.map((module) => {
             const tables = data.tables.filter((t) => t.module === module);
@@ -174,7 +175,7 @@ export default function Results() {
                            here === t.key
                              ? "border-ink font-medium text-ink"
                              : "border-rule text-ink-faint hover:text-ink-soft"}`}>
-                        {t.title}
+                        {t.short ?? t.title}
                       </a>
                     </li>
                   ))}
