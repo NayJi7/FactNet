@@ -41,10 +41,13 @@ export default function Verdict({ trace }: { trace: Trace }) {
             <div className="absolute inset-y-0 w-[3px] bg-ink transition-[left] duration-700"
                  style={{ left: `calc(${percent}% - 1px)`, transitionTimingFunction: "var(--ease-out-quint)" }} />
           </div>
-          <div className="mt-1.5 flex justify-between text-[11.5px] text-ink-faint">
-            <span>misleading</span>
-            <span className="tnum font-mono">0.5</span>
-            <span>reliable</span>
+          {/* absolute rather than justify-between: the three labels differ in
+              width, so spreading them puts 0.5 next to the midpoint instead of
+              on it, which is the one place on this axis that has to be exact */}
+          <div className="relative mt-1.5 h-[1.3em] text-[11.5px] text-ink-faint">
+            <span className="absolute left-0">misleading</span>
+            <span className="tnum absolute left-1/2 -translate-x-1/2 font-mono">0.5</span>
+            <span className="absolute right-0">reliable</span>
           </div>
         </div>
       )}

@@ -121,7 +121,7 @@ def _content_step(trace: Trace, text: str, model_key: str,
             kind="tokens", title="Where the model looked (attention)",
             data={"tokens": extra["attention"], "signed": False},
             caption="Last layer, averaged over heads. Attention describes the "
-                    "computation; on its own it is not evidence that a token "
+                    "computation. On its own it is not evidence that a token "
                     "mattered, which is why the next figure measures that directly."))
         occlusion = content_module.occlusion(text, card, probability)
         figures.append(Figure(

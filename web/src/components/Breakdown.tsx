@@ -106,8 +106,19 @@ export default function Breakdown({ trace }: { trace: Trace }) {
         ))}
       </div>
 
-      <div className="mt-2 flex items-baseline justify-between text-[11.5px] text-ink-faint">
-        <span>misleading</span><span className="tnum font-mono">0.5</span><span>reliable</span>
+      {/* the axis has to sit under the bars, not under the row: each row is a
+          180px name, the track, then a 52px figure, so the labels are given the
+          same gutters. Inside the track they are placed absolutely, because
+          three labels of unequal width spread by justify-between put 0.5 beside
+          the midpoint rather than on it. */}
+      <div className="mt-2 flex items-center gap-3 text-[11.5px] text-ink-faint">
+        <span className="w-[180px] shrink-0" aria-hidden />
+        <div className="relative h-[1.3em] flex-1">
+          <span className="absolute left-0">misleading</span>
+          <span className="tnum absolute left-1/2 -translate-x-1/2 font-mono">0.5</span>
+          <span className="absolute right-0">reliable</span>
+        </div>
+        <span className="w-[52px] shrink-0" aria-hidden />
       </div>
 
       <p className="mt-4 max-w-[80ch] text-[13px] leading-relaxed text-ink-soft">
