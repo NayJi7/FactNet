@@ -82,7 +82,10 @@ export default function Cascades({
 
   return (
     <div className="lg:grid lg:grid-cols-[290px_1fr] lg:gap-12">
-      <nav className="lg:sticky lg:top-8 lg:self-start">
+      {/* top-28 clears the sticky header, which is 7rem tall. At top-8 the first
+          entry of the list slid under it as soon as the page scrolled. The same
+          offset is used by every other sticky column in the interface. */}
+      <nav className="lg:sticky lg:top-28 lg:self-start">
         <p className="eyebrow mb-3">Four collected cascades</p>
         <ul className="space-y-px">
           {list.map((s) => (
