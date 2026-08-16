@@ -47,6 +47,15 @@ def _parse_step(trace: Trace, text: str, data, handles, origin: str) -> bool:
         if not has_features:
             trace.warn("Account features are constant on this cascade, so the "
                        "structure-only detector is used.")
+        # Below this the object has no shape to read: the smallest cascade in
+        # either training corpus carries three accounts, and a detector handed
+        # fewer still returns a confident number because nothing in it abstains.
+        if data.num_nodes < 5:
+            trace.warn(f"This cascade has {data.num_nodes} accounts. The "
+                       "detectors were trained on cascades of at least three "
+                       "and average dozens, so a structural reading of an "
+                       "object this small is not evidence about it, whatever "
+                       "the probability says.")
     trace.add(Step(key="parse", title="What came in",
                    summary=(f"{detail.get('accounts', 0)} accounts, "
                             f"{detail.get('direct', 0)} direct shares"

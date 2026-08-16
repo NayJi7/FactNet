@@ -20,7 +20,6 @@ const PANELS = [
     limit: "It stops near 0.63 macro-F1 and no transformer here separates from "
          + "the bag of words. The ceiling belongs to the one-sentence format: "
          + "handed a whole news article instead, the same approach reaches 0.805.",
-    by: "Ayman Ouguerd and Louaye Saghir",
   },
   {
     module: "propagation" as const,
@@ -30,7 +29,6 @@ const PANELS = [
     limit: "It reaches 0.920 on the benchmark, and a model with every edge "
          + "deleted reaches 0.940 on the same input. The structure separates "
          + "from that baseline on one configuration of four.",
-    by: "Adam Terrak and Abdelah El Harsal",
   },
 ];
 
@@ -59,7 +57,6 @@ export default function Modules() {
               <span className="font-medium text-ink">Where it runs out. </span>
               {panel.limit}
             </p>
-            <p className="mt-2 text-[11.5px] text-ink-faint">{panel.by}</p>
           </div>
         ))}
       </div>

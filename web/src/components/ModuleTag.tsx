@@ -16,9 +16,9 @@ export const MODULE_NAMES: Record<Module, string> = {
 };
 
 export const MODULE_BLURBS: Record<Module, string> = {
-  content: "Reads the text of the post itself. Ayman Ouguerd and Louaye Saghir.",
+  content: "Reads the text of the post itself.",
   propagation:
-    "Reads the shape of the cascade and who carried it. Adam Terrak and Abdelah El Harsal.",
+    "Reads the shape of the cascade and who carried it.",
   both: "Where a content score is handed to the propagation model.",
 };
 

@@ -266,9 +266,17 @@ def pick_checkpoint(origin: str, has_features: bool,
         return ("bigcn-structure.pt", "bigcn-structure",
                 "Account features are missing or constant on this input, so only "
                 "the shape of the cascade is read.")
-    if origin == "bluesky":
+    # A pasted cascade and one fetched from a link arrive in the collector's
+    # record format, so they are the same kind of object as a collected one and
+    # get the same detector. The branch above already treats all three as "not
+    # the benchmark" when a model is forced, and the default has to agree with
+    # it: the alternative is scoring a Bluesky-shaped cascade with the benchmark
+    # model while comparing its shape to Bluesky averages, which is the
+    # cross-platform error this project exists to report.
+    if origin in ("bluesky", "url", "cascade"):
         return ("bigcn-collected.pt", "bigcn-collected",
-                "Trained on collected Bluesky cascades. The benchmark detector is "
-                "not used here because it does not transfer between platforms.")
+                "Trained on collected Bluesky cascades, which is the format this "
+                "input arrived in. The benchmark detector is not used here "
+                "because it does not transfer between platforms.")
     return ("bigcn-upfd-profile.pt", "bigcn-upfd-profile",
             "The benchmark detector, applied to a benchmark cascade.")
