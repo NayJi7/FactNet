@@ -1,10 +1,11 @@
 import { useState } from "react";
+import { getExampleCascade } from "../lib/api";
 import Examples from "./Examples";
 import type { ModelCard } from "../lib/types";
 
 type Mode = "text" | "url" | "cascade";
 
-const SCHEMA_EXAMPLE = `{
+const STRUCTURE = `{
   "text": "the claim the post makes",
   "source_handle": "someone.bsky.social",
   "nodes": [
@@ -32,6 +33,8 @@ export default function InputPanel({
   const [cascade, setCascade] = useState("");
   const [model, setModel] = useState(models.find((m) => m.primary)?.key ?? "roberta");
   const [error, setError] = useState("");
+  const [copied, setCopied] = useState(false);
+  const [loadingExample, setLoadingExample] = useState(false);
   const [graphModel, setGraphModel] = useState("");
 
   const submit = () => {
@@ -116,7 +119,7 @@ export default function InputPanel({
             rows={8}
             spellCheck={false}
             className="w-full border border-rule bg-panel p-3 transition-colors focus:border-struct resize-y font-mono text-[11.5px] leading-relaxed"
-            placeholder={SCHEMA_EXAMPLE}
+            placeholder={STRUCTURE}
           />
           <details className="text-[12.5px] text-ink-faint">
             <summary className="cursor-pointer select-none font-medium text-ink">
@@ -136,12 +139,40 @@ export default function InputPanel({
                 Leave it out and the cascade is read on its shape alone, which the
                 interface will tell you.
               </p>
-              <button
-                onClick={() => setCascade(SCHEMA_EXAMPLE)}
-                className="border border-rule px-2 py-1 font-medium transition-colors hover:bg-sunk"
-              >
-                Fill in the example
-              </button>
+              {/* Two different offers. The structure is a skeleton to fill in,
+                  and the example is a real collected cascade: a two-node stub
+                  scores confidently on an object with no shape, which teaches
+                  the wrong thing about what the detector reads. */}
+              <div className="flex flex-wrap gap-2">
+                <button
+                  onClick={() => {
+                    navigator.clipboard?.writeText(STRUCTURE);
+                    setCopied(true);
+                    setTimeout(() => setCopied(false), 1600);
+                  }}
+                  className="border border-rule px-2 py-1 font-medium transition-colors hover:bg-sunk"
+                >
+                  {copied ? "Copied" : "Copy the structure"}
+                </button>
+                <button
+                  onClick={async () => {
+                    setLoadingExample(true);
+                    try {
+                      const { cascade } = await getExampleCascade();
+                      setCascade(JSON.stringify(cascade, null, 2));
+                      setError("");
+                    } catch {
+                      setError("The example could not be fetched. The engine may be busy.");
+                    } finally {
+                      setLoadingExample(false);
+                    }
+                  }}
+                  disabled={loadingExample}
+                  className="border border-rule px-2 py-1 font-medium transition-colors hover:bg-sunk disabled:opacity-40"
+                >
+                  {loadingExample ? "Fetching" : "Load a real cascade"}
+                </button>
+              </div>
             </div>
           </details>
         </div>

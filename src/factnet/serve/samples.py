@@ -99,6 +99,38 @@ def detail(index: int) -> dict | None:
 
 
 
+def record(index: int) -> dict | None:
+    """One cascade as a reader would paste it, and nothing more.
+
+    The stored record carries the label, the annotator's verdict and several
+    bookkeeping keys. None of them is an input: the pipeline never reads a
+    label, and showing one in an example would suggest the system is handed the
+    answer. What is left is exactly the four fields a cascade needs.
+    """
+    loaded = load()
+    if not 0 <= index < len(loaded):
+        return None
+    cascade = loaded[index]
+    return {
+        "text": cascade.get("text", ""),
+        "source_handle": cascade.get("source_handle", ""),
+        "nodes": [{k: v for k, v in node.items() if k in
+                   ("did", "handle", "kind", "profile")}
+                  for node in cascade.get("nodes", [])],
+        "edges": [{k: v for k, v in edge.items() if k in
+                   ("source", "target", "kind")}
+                  for edge in cascade.get("edges", [])],
+    }
+
+
+def smallest() -> int:
+    """The index of the shortest cascade, which is the one to offer as an example."""
+    loaded = load()
+    if not loaded:
+        return 0
+    return min(range(len(loaded)), key=lambda i: len(loaded[i].get("nodes", [])))
+
+
 def _web_url(uri: str, handle: str) -> str:
     """The post as a person would open it, rebuilt from the AT record key."""
     if not uri or "/" not in uri:

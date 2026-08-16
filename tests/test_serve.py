@@ -278,3 +278,32 @@ def test_the_headline_numbers_come_from_the_result_files():
     values = {h["label"]: h["value"] for h in headlines()}
     assert values, "no headlines were built"
     assert all(h["module"] in {"content", "propagation", "both"} for h in headlines())
+
+
+def test_the_worked_example_is_a_real_cascade_without_its_answer():
+    """The paste box offers a record, not a stub, and never the label.
+
+    A two-node placeholder scores confidently on an object that has no shape,
+    which teaches the wrong thing about what the detector reads. And a label in
+    the example would suggest the system is handed the answer, which it never is.
+    """
+    from fastapi.testclient import TestClient
+
+    from factnet.serve.api import app
+
+    client = TestClient(app)
+    payload = client.get("/api/samples/example")
+    assert payload.status_code == 200
+    cascade = payload.json()["cascade"]
+
+    assert set(cascade) == {"text", "source_handle", "nodes", "edges"}
+    assert len(cascade["nodes"]) >= 5, "a stub teaches the wrong lesson"
+    assert any(n.get("kind") == "source" for n in cascade["nodes"])
+
+    # the route must not be swallowed by the one that takes an index
+    assert client.get("/api/samples/1").status_code == 200
+    assert client.get("/api/samples/99").status_code == 404
+
+    # and what it hands out has to be something the engine accepts
+    assert client.post("/api/verdict", json={"cascade": cascade,
+                                             "origin": "cascade"}).status_code == 200

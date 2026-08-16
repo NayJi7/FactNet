@@ -23,6 +23,10 @@ export const getSamples = () => call<{ samples: Sample[] }>("/samples");
 export const getSampleDetail = (id: number) =>
   call<SampleDetail>(`/samples/${id}`);
 
+/** The shortest collected cascade, stripped to the fields a reader supplies. */
+export const getExampleCascade = () =>
+  call<{ cascade: Record<string, unknown> }>("/samples/example");
+
 export const getVerdict = (payload: {
   text?: string;
   cascade?: unknown;

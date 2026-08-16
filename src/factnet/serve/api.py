@@ -75,6 +75,20 @@ def sample_list() -> dict[str, Any]:
     return {"samples": samples.summaries()}
 
 
+@app.get("/api/samples/example")
+def sample_record() -> dict[str, Any]:
+    """The shortest collected cascade, stripped to the fields a reader supplies.
+
+    Offered as the worked example behind the paste box. A real record rather
+    than a placeholder, because a two-node stub produces a confident number on
+    an object with no shape, which teaches the wrong thing about the system.
+    """
+    found = samples.record(samples.smallest())
+    if found is None:
+        raise HTTPException(404, "no cascade is available to show")
+    return {"cascade": found}
+
+
 @app.get("/api/samples/{index}")
 def sample_detail(index: int) -> dict[str, Any]:
     """One cascade in full, before any model touches it."""
