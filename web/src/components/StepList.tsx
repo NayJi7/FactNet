@@ -96,13 +96,14 @@ export default function StepList({ steps }: { steps: Step[] }) {
                   {/* Two abreast once there is room. Attention beside occlusion
                       is also the comparison the pair exists to invite, so this
                       shortens the page and sharpens the point at once. A graph,
-                      a curve, and the model comparison keep the full measure:
-                      the last one carries the evidence for every model at once
-                      and turns unreadable in half a column. */}
+                      a curve, the model comparison and any table keep the full
+                      measure: the comparison carries the evidence for every
+                      model at once, and a five-column table in half a column
+                      can never show its last two, whatever the reader does. */}
                   <div className="grid gap-x-10 xl:grid-cols-2">
                     {step.figures.map((figure, i) => (
                       <div key={i}
-                           className={["graph", "line", "compare"].includes(figure.kind)
+                           className={["graph", "line", "compare", "table"].includes(figure.kind)
                              ? "xl:col-span-2" : "min-w-0"}>
                         <FigureView figure={figure} />
                       </div>
