@@ -3,6 +3,7 @@ import Cascades from "./components/Cascades";
 import CountUp from "./components/CountUp";
 import DataView from "./components/DataView";
 import Specimen from "./components/Specimen";
+import Models from "./components/Models";
 import Institutions from "./components/Institutions";
 import InputPanel from "./components/InputPanel";
 import Pending from "./components/Pending";
@@ -14,10 +15,11 @@ import { fetchCascade, followJob, getCurrentJob, getModels, streamVerdict } from
 import type { JobInfo } from "./lib/api";
 import type { ModelCard, Step, Trace } from "./lib/types";
 
-type Tab = "verdict" | "cascades" | "data" | "results";
+type Tab = "verdict" | "cascades" | "models" | "data" | "results";
 const TABS: Record<Tab, string> = {
   verdict: "Read a post",
   cascades: "Cascades",
+  models: "The models",
   data: "The data",
   results: "What we measured",
 };
@@ -223,11 +225,13 @@ export default function App() {
 
       <main className={`${SHELL} flex-1 px-8 py-10`}>
         {tab === "cascades" && (
-        <Cascades models={models} busy={busy} trace={trace} arriving={arriving}
+        <Cascades models={models} graphModels={graphModels} busy={busy} trace={trace} arriving={arriving}
                   rejoined={rejoined} jobLabel={job?.label} elapsed={job?.elapsed}
                   onChange={() => { setTrace(null); setError(""); }}
-                  onAnalyse={(id, model) => run({ sample_id: id, model })} />
+                  onAnalyse={(id, model, graph_model) =>
+                    run({ sample_id: id, model, graph_model })} />
       )}
+      {tab === "models" && <Models models={models} graphModels={graphModels} />}
       {tab === "data" && <DataView />}
         {tab === "results" && <Results />}
 

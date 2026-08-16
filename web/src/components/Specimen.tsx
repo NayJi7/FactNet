@@ -1,8 +1,6 @@
 import { useState } from "react";
 import ModuleTag from "./ModuleTag";
-import Modules from "./Modules";
 import { SPECIMENS, spread } from "./specimens";
-import ContentModels from "./ContentModels";
 import type { ModelCard } from "../lib/types";
 import type { Module } from "../lib/types";
 
@@ -31,8 +29,7 @@ export default function Specimen({ models = [] }: { models?: ModelCard[] }) {
   const loudest = readings.reduce((a, b) => (Math.abs(b.p - 0.5) > Math.abs(a.p - 0.5) ? b : a));
 
   return (
-    <div className="space-y-10">
-    <div className="grid gap-x-14 gap-y-10 lg:grid-cols-[minmax(0,1fr)_minmax(0,320px)]">
+    <div className="grid gap-x-14 gap-y-10 lg:grid-cols-[minmax(0,1fr)_minmax(0,340px)]">
       <div>
         <p className="eyebrow">Why the reasoning is shown, not just the answer</p>
 
@@ -101,11 +98,6 @@ export default function Specimen({ models = [] }: { models?: ModelCard[] }) {
           text on its own gets the first two. A cascade gets all five.
         </p>
       </aside>
-    </div>
-
-    <ContentModels models={models} />
-
-    <Modules />
     </div>
   );
 }

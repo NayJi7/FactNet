@@ -1,5 +1,4 @@
 import { useEffect, useState } from "react";
-import ModuleTag from "./ModuleTag";
 import FigureView from "./Figures";
 import Pending from "./Pending";
 import StepList from "./StepList";
@@ -48,10 +47,11 @@ function Field({ label, value }: { label: string; value: React.ReactNode }) {
 }
 
 export default function Cascades({
-  models, onAnalyse, busy, trace, arriving, onChange, rejoined, jobLabel, elapsed,
+  models, graphModels, onAnalyse, busy, trace, arriving, onChange, rejoined, jobLabel, elapsed,
 }: {
   models: ModelCard[];
-  onAnalyse: (id: number, model: string) => void;
+  graphModels: ModelCard[];
+  onAnalyse: (id: number, model: string, graphModel?: string) => void;
   busy: boolean;
   trace: Trace | null;
   arriving: Step[];
@@ -62,6 +62,7 @@ export default function Cascades({
 }) {
   const [chosen, setChosen] = useState(0);
   const [model, setModel] = useState(models.find((m) => m.primary)?.key ?? "roberta");
+  const [graphModel, setGraphModel] = useState("");
 
   const samples = useAsync(() => getSamples().then((s) => s.samples), []);
   const list: Sample[] = samples.data ?? [];
@@ -125,11 +126,67 @@ export default function Cascades({
             The list did not load. Tap to try again.
           </button>
         )}
-        <ModuleTag module="propagation" className="mt-5" />
-        <p className="mt-2 max-w-[34ch] text-[12px] leading-relaxed text-ink-faint">
-          Kept beside the code, so a demonstration never depends on the network.
-          One of them the detector gets wrong, on purpose.
-        </p>
+
+        {/* The controls sit with the list rather than beside the post, so the
+            column that chooses what to read is also the column that decides how,
+            which is the arrangement the post reader already uses. */}
+        {detail && (
+          <div className="mt-6 border-t border-rule pt-4">
+            <p className="eyebrow">Ask a model</p>
+            <p className="mt-1.5 max-w-[34ch] text-[12.5px] leading-relaxed text-ink-soft">
+              A cascade is read differently from a bare sentence: text and shape
+              are scored apart, then combined, then replayed as the spread grew.
+            </p>
+
+            <label className="mt-3.5 block">
+              <span className="eyebrow mb-1.5 block">Content model</span>
+              <select value={model} onChange={(e) => setModel(e.target.value)}
+                      className="w-full border border-rule bg-panel p-2 text-[13px]">
+                {models.map((m) => (
+                  <option key={m.key} value={m.key} disabled={!m.available}>
+                    {m.name}{m.macro_f1 ? ` \u2014 macro-F1 ${m.macro_f1}` : ""}
+                  </option>
+                ))}
+              </select>
+            </label>
+
+            <button onClick={() => onAnalyse(detail.id, model, graphModel || undefined)}
+                    disabled={busy}
+                    className="mt-3 w-full bg-ink px-6 py-2.5 text-[13.5px] font-medium
+                               text-paper transition-opacity hover:opacity-90 disabled:opacity-40">
+              {busy ? "Reading" : "Read this cascade"}
+            </button>
+
+            {/* The detector choice belongs here more than anywhere else: the
+                demonstration it exists for is forcing the benchmark model onto a
+                Bluesky cascade, and this is the tab that has cascades. */}
+            <details className="mt-4 border-t border-rule pt-3">
+              <summary className="cursor-pointer select-none text-[13px] font-medium text-ink">
+                Choose the propagation detector yourself
+              </summary>
+              <div className="mt-3 space-y-2">
+                <select value={graphModel} onChange={(e) => setGraphModel(e.target.value)}
+                        aria-label="Propagation detector"
+                        className="w-full border border-rule bg-panel p-2 text-[13px]">
+                  <option value="">Let the system choose (recommended)</option>
+                  {graphModels
+                    .filter((m) => m.available && m.key !== "bigcn-upfd-profile-score")
+                    .map((m) => (
+                      <option key={m.key} value={m.key}>
+                        {m.name}{m.macro_f1 ? ` \u2014 macro-F1 ${m.macro_f1}` : ""}
+                      </option>
+                    ))}
+                </select>
+                <p className="max-w-[34ch] text-[12.5px] leading-relaxed text-ink-faint">
+                  These are collected Bluesky cascades. Forcing a benchmark
+                  detector onto one is worth doing once: it is the cross-platform
+                  failure the article reports, and it is more convincing watched
+                  than read.
+                </p>
+              </div>
+            </details>
+          </div>
+        )}
       </nav>
 
       {loaded.error && !detail && (
@@ -183,35 +240,6 @@ export default function Cascades({
               )}
             </div>
           </header>
-
-          <section className="border-b border-rule-firm py-5">
-            <div className="flex flex-wrap items-end justify-between gap-x-8 gap-y-4">
-              <div className="max-w-[46ch]">
-                <p className="eyebrow">Ask a model</p>
-                <p className="mt-1.5 text-[13px] leading-relaxed text-ink-soft">
-                  A cascade is read differently from a bare sentence: text and shape
-                  are scored apart, then combined, then replayed as the spread grew.
-                </p>
-              </div>
-              <div className="flex flex-wrap items-end gap-3">
-                <label className="min-w-52">
-                  <span className="eyebrow mb-1.5 block">Content model</span>
-                  <select value={model} onChange={(e) => setModel(e.target.value)}
-                          className="w-full border border-rule bg-panel p-2 text-[13px]">
-                    {models.map((m) => (
-                      <option key={m.key} value={m.key} disabled={!m.available}>
-                        {m.name}{m.macro_f1 ? ` — macro-F1 ${m.macro_f1}` : ""}
-                      </option>
-                    ))}
-                  </select>
-                </label>
-                <button onClick={() => onAnalyse(detail.id, model)} disabled={busy}
-                        className="bg-ink px-6 py-2.5 text-[13.5px] font-medium text-paper transition-opacity hover:opacity-90 disabled:opacity-40">
-                  {busy ? "Reading" : "Read this cascade"}
-                </button>
-              </div>
-            </div>
-          </section>
 
           {busy && (
             <section className="border-b border-rule-firm py-7">
