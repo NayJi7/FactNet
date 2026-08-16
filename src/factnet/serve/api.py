@@ -57,6 +57,8 @@ class VerdictRequest(BaseModel):
     model: str | None = None
     graph_model: str | None = None
     origin: str = "text"
+    # the share of the cascade the system may see, for the early-detection view
+    observed: int = 100
 
 
 class FetchRequest(BaseModel):
@@ -115,6 +117,9 @@ def _resolve(request: VerdictRequest) -> tuple[dict[str, Any] | None, str]:
         if problem:
             raise HTTPException(422, problem)
 
+    if request.observed not in (20, 40, 60, 80, 100):
+        raise HTTPException(422, "observed must be one of 20, 40, 60, 80, 100")
+
     if not request.text.strip() and cascade is None:
         raise HTTPException(422, "give a text, a cascade, or a sample id")
 
@@ -133,7 +138,7 @@ def verdict(request: VerdictRequest) -> dict[str, Any]:
     cascade, origin = _resolve(request)
     trace = run(text=request.text, cascade=cascade,
                 content_model=request.model, graph_model=request.graph_model,
-                origin=origin)
+                origin=origin, observed=request.observed)
     return trace.to_dict()
 
 
@@ -184,7 +189,8 @@ def verdict_stream(request: VerdictRequest) -> StreamingResponse:
         try:
             trace = run(text=request.text, cascade=cascade,
                         content_model=request.model, graph_model=request.graph_model,
-                        origin=origin, on_step=lambda s: job.append(asdict(s)))
+                        origin=origin, observed=request.observed,
+                        on_step=lambda s: job.append(asdict(s)))
             job.finish(summary=trace.summary())
         except Exception as error:                       # reported, never swallowed
             job.finish(error=f"{type(error).__name__}: {error}")

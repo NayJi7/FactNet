@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import FigureView from "./Figures";
+import Observed from "./Observed";
 import Pending from "./Pending";
 import StepList from "./StepList";
 import Verdict from "./Verdict";
@@ -51,7 +52,8 @@ export default function Cascades({
 }: {
   models: ModelCard[];
   graphModels: ModelCard[];
-  onAnalyse: (id: number, model: string, graphModel?: string) => void;
+  onAnalyse: (id: number, model: string, graphModel?: string,
+              observed?: number) => void;
   busy: boolean;
   trace: Trace | null;
   arriving: Step[];
@@ -63,6 +65,7 @@ export default function Cascades({
   const [chosen, setChosen] = useState(0);
   const [model, setModel] = useState(models.find((m) => m.primary)?.key ?? "roberta");
   const [graphModel, setGraphModel] = useState("");
+  const [observed, setObserved] = useState(100);
 
   const samples = useAsync(() => getSamples().then((s) => s.samples), []);
   const list: Sample[] = samples.data ?? [];
@@ -150,7 +153,12 @@ export default function Cascades({
               </select>
             </label>
 
-            <button onClick={() => onAnalyse(detail.id, model, graphModel || undefined)}
+            <div className="mt-4">
+              <Observed value={observed} onChange={setObserved} disabled={busy} />
+            </div>
+
+            <button onClick={() =>
+                      onAnalyse(detail.id, model, graphModel || undefined, observed)}
                     disabled={busy}
                     className="mt-3 w-full bg-ink px-6 py-2.5 text-[13.5px] font-medium
                                text-paper transition-opacity hover:opacity-90 disabled:opacity-40">

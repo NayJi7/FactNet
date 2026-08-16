@@ -113,10 +113,10 @@ export default function App() {
     guard(() => streamVerdict(payload, onStep, setJob),
           // sample_id can be 0, so its presence is what counts, not its truth
           Boolean(payload.cascade) || payload.sample_id !== undefined);
-  const fromUrl = (url: string) =>
+  const fromUrl = (url: string, observed = 100) =>
     guard(async () => {
       const { cascade } = await fetchCascade(url);
-      return streamVerdict({ cascade, origin: "bluesky" }, onStep, setJob);
+      return streamVerdict({ cascade, origin: "bluesky", observed }, onStep, setJob);
     }, true);
 
   return (
@@ -228,8 +228,8 @@ export default function App() {
         <Cascades models={models} graphModels={graphModels} busy={busy} trace={trace} arriving={arriving}
                   rejoined={rejoined} jobLabel={job?.label} elapsed={job?.elapsed}
                   onChange={() => { setTrace(null); setError(""); }}
-                  onAnalyse={(id, model, graph_model) =>
-                    run({ sample_id: id, model, graph_model })} />
+                  onAnalyse={(id, model, graph_model, observed) =>
+                    run({ sample_id: id, model, graph_model, observed })} />
       )}
       {tab === "models" && <Models models={models} graphModels={graphModels} />}
       {tab === "data" && <DataView />}

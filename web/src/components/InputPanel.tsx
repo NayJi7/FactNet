@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { getExampleCascade } from "../lib/api";
 import Examples from "./Examples";
+import Observed from "./Observed";
 import type { ModelCard } from "../lib/types";
 
 type Mode = "text" | "url" | "cascade";
@@ -23,7 +24,7 @@ export default function InputPanel({
   graphModels: ModelCard[];
   busy: boolean;
   onRun: (payload: any) => void;
-  onFetch: (url: string) => void;
+  onFetch: (url: string, observed: number) => void;
 }) {
   const [mode, setMode] = useState<Mode>("text");
   const [text, setText] = useState(
@@ -33,6 +34,7 @@ export default function InputPanel({
   const [cascade, setCascade] = useState("");
   const [model, setModel] = useState(models.find((m) => m.primary)?.key ?? "roberta");
   const [error, setError] = useState("");
+  const [observed, setObserved] = useState(100);
   const [copied, setCopied] = useState(false);
   const [loadingExample, setLoadingExample] = useState(false);
   const [graphModel, setGraphModel] = useState("");
@@ -41,9 +43,10 @@ export default function InputPanel({
     setError("");
     const graph_model = graphModel || undefined;
     if (mode === "text") return onRun({ text, model, origin: "text" });
-    if (mode === "url") return onFetch(url);
+    if (mode === "url") return onFetch(url, observed);
     try {
-      onRun({ cascade: JSON.parse(cascade), model, graph_model, origin: "cascade" });
+      onRun({ cascade: JSON.parse(cascade), model, graph_model,
+              origin: "cascade", observed });
     } catch {
       setError("That is not valid JSON. Check for a trailing comma or a missing brace.");
     }
@@ -176,6 +179,10 @@ export default function InputPanel({
             </div>
           </details>
         </div>
+      )}
+
+      {mode !== "text" && (
+        <Observed value={observed} onChange={setObserved} disabled={busy} />
       )}
 
       <div className="flex flex-wrap items-end gap-3">

@@ -103,6 +103,22 @@ def truncate(data: Data, fraction: float) -> Data:
     return Data(x=data.x[sorted(keep)], edge_index=edge_index)
 
 
+def survivors(data: Data, fraction: float) -> tuple[list[int], list[int]]:
+    """Which nodes and edges a truncation keeps, in the order it leaves them.
+
+    Everything the interface draws beside a cascade is a list running parallel
+    to the node or edge order: handles, follower counts, whether an edge was a
+    repost or a reply. Truncation renumbers both, so those lists have to be cut
+    the same way or a name ends up on the wrong dot.
+    """
+    keep_count = max(1, int(round(fraction * data.num_nodes)))
+    order = sorted(depths(data).items(), key=lambda kv: (kv[1], kv[0]))
+    keep = {node for node, _ in order[:keep_count]}
+    edges = [position for position, (s, t) in enumerate(data.edge_index.t().tolist())
+             if s in keep and t in keep]
+    return sorted(keep), edges
+
+
 def as_model_expects(data: Data, model: torch.nn.Module) -> Data:
     """Present the cascade in the width the chosen detector was trained on.
 

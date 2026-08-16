@@ -297,8 +297,16 @@ CORPUS_FOR = {"bluesky": "bluesky", "cascade": "bluesky", "url": "bluesky",
 def run(text: str = "", cascade: dict | None = None, data=None,
         content_model: str | None = None, origin: str = "text",
         corpus: str | None = None, graph_model: str | None = None,
-        on_step=None) -> Trace:
-    """The whole system on one input, with every stage recorded."""
+        observed: int = 100, on_step=None) -> Trace:
+    """The whole system on one input, with every stage recorded.
+
+    ``observed`` is the share of the cascade the system is allowed to see, and
+    it is applied once, here, rather than at the stage that scores. Asking what
+    the system would have said early is not a question about the detector alone:
+    the shape, the influence ranking and the integration all have to see the
+    same truncated object, or the answer describes a situation that never
+    existed.
+    """
     trace = Trace(input_kind=origin)
     if on_step is not None:
         trace.listen(on_step)
@@ -315,6 +323,19 @@ def run(text: str = "", cascade: dict | None = None, data=None,
         followers = structure_module.node_followers(cascade, order)
         data = data if data is not None else cascade_to_pyg(cascade)
         text = text or cascade.get("text", "")
+
+        if observed < 100 and data.num_nodes > 1:
+            fraction = max(0.01, min(1.0, observed / 100))
+            kept_nodes, kept_edges = structure_module.survivors(data, fraction)
+            full = data.num_nodes
+            data = structure_module.truncate(data, fraction)
+            handles = [handles[i] for i in kept_nodes]
+            followers = [followers[i] for i in kept_nodes]
+            kinds = [kinds[i] for i in kept_edges if i < len(kinds)]
+            trace.warn(f"Only the first {observed}\u2009% of this cascade is being "
+                       f"read, {data.num_nodes} accounts of {full}. Breadth-first "
+                       "order stands in for arrival times, which the collector "
+                       "does not record.")
 
     content_model = content_model or primary("content").key
     has_features = _parse_step(trace, text, data, handles, origin)
