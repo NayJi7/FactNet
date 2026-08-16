@@ -19,7 +19,7 @@ type Tab = "verdict" | "cascades" | "models" | "data" | "results";
 const TABS: Record<Tab, string> = {
   verdict: "Read a post",
   cascades: "Cascades",
-  models: "The models",
+  models: "Our models",
   data: "The data",
   results: "What we measured",
 };

@@ -89,7 +89,9 @@ export default function DataView() {
             <p className="mt-2 max-w-[74ch] text-[13px] leading-relaxed text-ink-soft">
               {c.cascades} cascades over {c.accounts.toLocaleString()} accounts,
               linked to {c.domains} outlets whose factual record is already rated.
-              Balanced by cascade count, and not remotely balanced by size.
+              Two hundred cascades on each side, so the sample is balanced by
+              count. It is not remotely balanced by size, and the bars below
+              are that second quantity.
             </p>
 
             {/* The asymmetry is the finding of this sample, so it is drawn. Two
@@ -99,8 +101,16 @@ export default function DataView() {
               {c.classes.map((row: any) => {
                 const widest = Math.max(...c.classes.map((x: any) => x.mean_accounts));
                 return (
-                  <div key={row.name} className="grid items-center gap-x-5 sm:grid-cols-[110px_1fr_74px]">
-                    <span className="text-[13px]">{row.name}</span>
+                  <div key={row.name} className="grid items-center gap-x-5 sm:grid-cols-[164px_1fr_74px]">
+                    {/* the cascade count belongs on the row: without it the bar
+                        reads as the class size, and 200 against 200 is exactly
+                        what these bars are not measuring */}
+                    <span className="text-[13px]">
+                      {row.name}
+                      <span className="ml-1.5 tnum font-mono text-[11.5px] text-ink-faint">
+                        {row.cascades} cascades
+                      </span>
+                    </span>
                     <div className="relative h-[20px] bg-sunk">
                       <div className="absolute inset-y-0 left-0 transition-[width] duration-700"
                            style={{ width: `${(row.mean_accounts / widest) * 100}%`,
@@ -115,7 +125,7 @@ export default function DataView() {
                 );
               })}
               <p className="flex flex-wrap justify-between gap-x-6 border-t border-rule pt-2 text-[11.5px] text-ink-faint">
-                <span>mean accounts per cascade</span>
+                <span>bars are the mean accounts per cascade, not the number of cascades</span>
                 <span>
                   medians: {c.classes.map((x: any) => `${x.name} ${x.median_accounts}`).join(", ")}
                 </span>
