@@ -154,14 +154,15 @@ export default function Results() {
     <div className="xl:grid xl:grid-cols-[172px_1fr] xl:gap-x-12">
       <nav className="hidden xl:block">
         <div className="sticky top-28 max-h-[72vh] overflow-y-auto pb-4">
+          <p className="eyebrow mb-1.5">On this page</p>
           {ORDER.map((module) => {
             const tables = data.tables.filter((t) => t.module === module);
             if (!tables.length) return null;
             return (
               <div key={module} className="mb-5">
-                <p className={`eyebrow mb-1.5 ${
-                  module === "content" ? "!text-content"
-                  : module === "propagation" ? "!text-struct" : ""}`}>
+                <p className={`mb-1 pl-2.5 text-[11px] font-medium uppercase tracking-[0.09em] ${
+                  module === "content" ? "text-content"
+                  : module === "propagation" ? "text-struct" : "text-ink-faint"}`}>
                   {MODULE_NAMES[module]}
                 </p>
                 <ul>
@@ -181,6 +182,10 @@ export default function Results() {
               </div>
             );
           })}
+          <p className="mt-4 border-t border-rule pt-3 text-[11.5px] leading-relaxed text-ink-faint">
+            Every table is built from the file its experiment wrote, so a rerun
+            changes this page and nothing has to be copied across.
+          </p>
         </div>
       </nav>
 

@@ -18,7 +18,7 @@ import type { ModelCard, Step, Trace } from "./lib/types";
 type Tab = "verdict" | "cascades" | "models" | "data" | "results";
 const TABS: Record<Tab, string> = {
   verdict: "Read a post",
-  cascades: "Cascades",
+  cascades: "Collected cascades",
   models: "Our models",
   data: "The data",
   results: "What we measured",

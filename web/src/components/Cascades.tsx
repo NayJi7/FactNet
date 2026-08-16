@@ -87,7 +87,7 @@ export default function Cascades({
           entry of the list slid under it as soon as the page scrolled. The same
           offset is used by every other sticky column in the interface. */}
       <nav className="lg:sticky lg:top-28 lg:self-start">
-        <p className="eyebrow mb-3">Four collected cascades</p>
+        <p className="eyebrow mb-3">Pick one</p>
         <ul className="space-y-px">
           {list.map((s) => (
             <li key={s.id}>
