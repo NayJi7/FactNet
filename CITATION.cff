@@ -1,0 +1,64 @@
+cff-version: 1.2.0
+message: "If you use this software, please cite the technical reports below."
+title: "FactNet"
+type: software
+authors:
+  - family-names: Terrak
+    given-names: Adam
+    affiliation: "CY Tech, CY Cergy Paris Université"
+  - family-names: El Harsal
+    given-names: Abdelah
+    affiliation: "CY Tech, CY Cergy Paris Université"
+  - family-names: Ouguerd
+    given-names: Ayman
+    affiliation: "CY Tech, CY Cergy Paris Université"
+  - family-names: Saghir
+    given-names: Louaye
+    affiliation: "CY Tech, CY Cergy Paris Université"
+repository-code: "https://github.com/NayJi7/FactNet"
+license: MIT
+keywords:
+  - misinformation detection
+  - graph neural networks
+  - natural language processing
+  - propagation cascades
+  - Bluesky
+references:
+  - type: report
+    title: "Propagation Structure as a Signal for Misinformation Detection with Graph Neural Networks and Edgeless Baselines (Technical Report)"
+    authors:
+      - family-names: Terrak
+        given-names: Adam
+      - family-names: El Harsal
+        given-names: Abdelah
+      - family-names: Ouguerd
+        given-names: Ayman
+      - family-names: Saghir
+        given-names: Louaye
+      - family-names: Hamid
+        given-names: Suraya
+      - family-names: Abdul Ghani
+        given-names: Norjihan
+    year: 2026
+    publisher:
+      name: Zenodo
+    doi: "10.5281/zenodo.23015281"
+  - type: report
+    title: "Content-Based Misinformation Detection on Short Claims and Full News Articles (Technical Report)"
+    authors:
+      - family-names: Terrak
+        given-names: Adam
+      - family-names: Ouguerd
+        given-names: Ayman
+      - family-names: El Harsal
+        given-names: Abdelah
+      - family-names: Saghir
+        given-names: Louaye
+      - family-names: Abdul Ghani
+        given-names: Norjihan
+      - family-names: Hamid
+        given-names: Suraya
+    year: 2026
+    publisher:
+      name: Zenodo
+    doi: "10.5281/zenodo.23014908"
