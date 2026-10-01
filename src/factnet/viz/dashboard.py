@@ -51,7 +51,7 @@ def cascade_metrics(graph) -> dict[str, int]:
 
 
 def main() -> None:
-    st.set_page_config(page_title="UM-FactNet dashboard", layout="wide")
+    st.set_page_config(page_title="FactNet dashboard", layout="wide")
     st.title("Misinformation propagation")
 
     source = st.sidebar.radio("Source", ["Benchmark (UPFD)", "Collected (Bluesky)"])

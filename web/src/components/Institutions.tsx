@@ -5,7 +5,7 @@ import { useEffect, useState } from "react";
  *
  * The marks are optional files: if one is missing the name is set in type
  * instead, so the interface never shows a broken image during a demonstration.
- * Drop `um.png` and `cytech.png` (or .svg) into web/public/logos/ to use them.
+ * Drop `um.png` and `ct.png` (or .svg) into web/public/logos/ to use them.
  */
 const MARKS = [
   { key: "um", name: "Universiti Malaya", detail: "FSKTM",

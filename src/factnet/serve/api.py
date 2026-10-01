@@ -30,7 +30,7 @@ from factnet.serve import results as results_module
 from factnet.serve.pipeline import run
 from factnet.serve.registry import catalogue
 
-app = FastAPI(title="UM-FactNet", version="1.0")
+app = FastAPI(title="FactNet", version="1.0")
 
 # In development Vite serves the front end from another port, so the browser
 # makes cross-origin calls and anything is allowed. A deployment serves both

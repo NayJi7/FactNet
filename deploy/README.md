@@ -16,7 +16,7 @@ On the server, as a user in the `docker` group:
 
 ```bash
 sudo mkdir -p /opt/factnet && sudo chown "$USER" /opt/factnet
-git clone git@github.com:NayJi7/UM-FactNet.git /opt/factnet
+git clone git@github.com:NayJi7/FactNet.git /opt/factnet
 cd /opt/factnet
 cp env.example .env && chmod 600 .env
 ```

@@ -30,7 +30,7 @@ from typing import Any
 
 BASE = "https://public.api.bsky.app/xrpc"
 AUTH_BASE = "https://bsky.social/xrpc"
-USER_AGENT = "UM-FactNet-research/0.1 (academic study of misinformation propagation)"
+USER_AGENT = "FactNet-research/0.1 (academic study of misinformation propagation)"
 OUT_DIR = Path(__file__).resolve().parents[3] / "data" / "raw" / "bluesky"
 
 
