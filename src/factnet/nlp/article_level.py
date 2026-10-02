@@ -1,19 +1,8 @@
-"""The same question asked of an article instead of a sentence.
+"""Is the ~0.63 LIAR ceiling about short claims? Try full articles instead.
 
-Every model on LIAR stops near 0.63 macro-F1. The claim this module supports is
-that the bound belongs to the unit of text being judged and not to content
-analysis as such, and the cheapest way to test it is to change only the unit.
-
-UPFD stores, at the root of each propagation cascade, a 768-dimensional
-embedding of the news article the cascade carries. Logistic regression on that
-vector alone reads a whole article and nothing else: no accounts, no edges, no
-cascade. If it clears 0.63 by a wide margin on both corpora, the sentence was
-the binding constraint.
-
-The protocol is the published train split with balanced class weights and no
-other tuning, matching ``graph.trivial_baselines`` exactly so that the two
-articles report one number for this experiment rather than two. Intervals come from resampling the
-test split, which is the only uncertainty a fixed fit has.
+UPFD has a 768-d embedding of the whole article on the root node. Logreg on just
+that vector (no graph). Same protocol as graph.trivial_baselines so both papers
+report the same number. CIs by bootstrapping the test split.
 
     uv run python -m factnet.nlp.article_level
 """
@@ -35,7 +24,7 @@ ROUNDS = 5000
 
 
 def root_vectors(dataset) -> tuple[np.ndarray, np.ndarray]:
-    """One article embedding per cascade, and the cascade's label."""
+    """(root embeddings, labels)"""
     return (np.array([g.x[0].numpy() for g in dataset]),
             np.array([int(g.y) for g in dataset]))
 

@@ -1,9 +1,6 @@
-"""Content-based verdict baselines on LIAR (reliable / misleading).
+"""LIAR baselines: TF-IDF + logreg, and frozen DistilBERT (mean pooling) + logreg.
 
-- Classical: TF-IDF + logistic regression (the transparent baseline to beat).
-- Transformer (frozen): mean-pooled DistilBERT embeddings + logistic regression
-  (a first transformer result without fine-tuning; the full fine-tuned RoBERTa
-  runs on GPU/Colab later).
+Fine-tuned models are in the kaggle notebooks.
 
     uv run python -m factnet.nlp.baseline
 """
@@ -35,7 +32,7 @@ def embed(texts, model_name: str = "distilbert-base-uncased", batch: int = 32):
     import transformers
     from transformers import AutoModel, AutoTokenizer
 
-    transformers.logging.set_verbosity_error()  # silence load-report / hub warnings
+    transformers.logging.set_verbosity_error()
     tok = AutoTokenizer.from_pretrained(model_name)
     model = AutoModel.from_pretrained(model_name).eval()
     chunks = []

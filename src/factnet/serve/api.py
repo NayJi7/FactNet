@@ -1,8 +1,4 @@
-"""HTTP surface over the engine.
-
-Thin by design: every endpoint parses its input, calls the pipeline, and hands
-back the trace untouched. No reasoning happens here, so that what the browser
-shows and what ``pytest`` checks are the same computation.
+"""FastAPI app for the dashboard. Endpoints just validate and call the pipeline.
 
     uv run uvicorn factnet.serve.api:app --reload --port 8000
 """
@@ -34,12 +30,8 @@ from factnet.serve.registry import catalogue
 
 app = FastAPI(title="FactNet", version="1.0")
 
-# In development Vite serves the front end from another port, so the browser
-# makes cross-origin calls and anything is allowed. A deployment serves both
-# from one origin and needs none of that, so the wildcard is narrowed to the
-# local dev servers as soon as a built front end is present: a deployment that
-# forgets to set FACTNET_CORS_ORIGINS should not end up with the permissive
-# default, since the correct answer there is to allow nothing.
+# CORS is only needed in dev (vite on :5173). In prod everything is same-origin,
+# so default to the dev servers instead of "*" if FACTNET_CORS_ORIGINS isn't set
 _DEV_ORIGINS = ["http://localhost:5173", "http://127.0.0.1:5173"]
 _origins = os.environ.get("FACTNET_CORS_ORIGINS", "")
 app.add_middleware(
@@ -50,8 +42,8 @@ app.add_middleware(
 
 POST_URL = re.compile(r"bsky\.app/profile/([^/]+)/post/([A-Za-z0-9]+)")
 MAX_LIVE_ACCOUNTS = 400
-FETCH_TTL = 3600                        # a live cascade is reused for an hour
-REPLAY_SECONDS = (5.5, 9.0)             # a cached reading still plays out its stages
+FETCH_TTL = 3600                        # 1h
+REPLAY_SECONDS = (5.5, 9.0)             # cached results are replayed slowly, see work()
 
 
 def _visitor(http: Request) -> str:
@@ -60,7 +52,7 @@ def _visitor(http: Request) -> str:
 
 
 def _site_data(request: VerdictRequest, cascade: dict[str, Any] | None) -> bool:
-    """Whether a reading is of data the site already holds, which costs no quota."""
+    """True for the samples / example posts we ship (no quota for those)."""
     if request.sample_id is not None:
         return True
     if cascade is None:
@@ -83,8 +75,7 @@ class VerdictRequest(BaseModel):
     model: str | None = None
     graph_model: str | None = None
     origin: str = "text"
-    # the share of the cascade the system may see, for the early-detection view
-    observed: int = 100
+    observed: int = 100     # % of the cascade visible (early detection)
 
 
 class FetchRequest(BaseModel):
@@ -93,24 +84,17 @@ class FetchRequest(BaseModel):
 
 @app.get("/api/models")
 def models() -> dict[str, Any]:
-    """The selector: every model, with the score it actually earned."""
     return {"content": catalogue("content"), "graph": catalogue("graph")}
 
 
 @app.get("/api/samples")
 def sample_list() -> dict[str, Any]:
-    """Cascades kept beside the code, so a demonstration never needs the network."""
     return {"samples": samples.summaries()}
 
 
 @app.get("/api/samples/example")
 def sample_record() -> dict[str, Any]:
-    """The shortest collected cascade, stripped to the fields a reader supplies.
-
-    Offered as the worked example behind the paste box. A real record rather
-    than a placeholder, because a two-node stub produces a confident number on
-    an object with no shape, which teaches the wrong thing about the system.
-    """
+    """Smallest collected cascade, used as the example in the paste box."""
     found = samples.record(samples.smallest())
     if found is None:
         raise HTTPException(404, "no cascade is available to show")
@@ -119,7 +103,6 @@ def sample_record() -> dict[str, Any]:
 
 @app.get("/api/samples/{index}")
 def sample_detail(index: int) -> dict[str, Any]:
-    """One cascade in full, before any model touches it."""
     found = samples.detail(index)
     if found is None:
         raise HTTPException(404, "no such sample")
@@ -127,7 +110,7 @@ def sample_detail(index: int) -> dict[str, Any]:
 
 
 def _resolve(request: VerdictRequest) -> tuple[dict[str, Any] | None, str]:
-    """Validate a request and settle what is being read, for either endpoint."""
+    """Shared validation for /verdict and /verdict/stream."""
     cascade = request.cascade
     origin = request.origin
 
@@ -149,8 +132,7 @@ def _resolve(request: VerdictRequest) -> tuple[dict[str, Any] | None, str]:
     if not request.text.strip() and cascade is None:
         raise HTTPException(422, "give a text, a cascade, or a sample id")
 
-    # a stale model key must not reach the engine: it would surface as a 500
-    # with a traceback in the middle of a demonstration
+    # otherwise an old model key ends up as a 500
     for value, kind in ((request.model, "content"), (request.graph_model, "graph")):
         if value and value not in {c["key"] for c in catalogue(kind)}:
             raise HTTPException(
@@ -178,11 +160,7 @@ def verdict(request: VerdictRequest, http: Request) -> dict[str, Any]:
 
 
 def _label(request: VerdictRequest, cascade: dict[str, Any] | None) -> tuple[str, str]:
-    """Which view the reading belongs to, and a name for it.
-
-    The interface needs both to put someone back where they were after a
-    reload, so they are settled once, here, rather than guessed by the browser.
-    """
+    """(tab, label) for the job, so the front can restore the right view on reload."""
     if cascade is not None:
         domain = cascade.get("source_domain") or cascade.get("source_handle") or ""
         accounts = len(cascade.get("nodes", []))
@@ -194,7 +172,6 @@ def _label(request: VerdictRequest, cascade: dict[str, Any] | None) -> tuple[str
 
 
 def _stream(job: jobs.Job, start: int = 0) -> StreamingResponse:
-    """Follow a reading from a given stage, as server-sent events."""
     def frames() -> Iterator[str]:
         yield f"event: job\ndata: {json.dumps(job.describe())}\n\n"
         for name, payload in job.follow(start):
@@ -207,12 +184,9 @@ def _stream(job: jobs.Job, start: int = 0) -> StreamingResponse:
 
 @app.post("/api/verdict/stream")
 def verdict_stream(request: VerdictRequest, http: Request) -> StreamingResponse:
-    """Start a reading and follow it, stage by stage as each one lands.
+    """Run a reading as a job and stream its steps (SSE).
 
-    The reading is registered as a job before anything is computed, so that a
-    browser which goes away mid-run can find it again instead of losing it.
-    Asking while a reading is already under way follows that one rather than
-    starting a second: the work is heavy, and nothing here needs two at once.
+    Only one job runs at a time; if one is already running we just follow it.
     """
     cascade, origin = _resolve(request)
     tab, label = _label(request, cascade)
@@ -220,7 +194,7 @@ def verdict_stream(request: VerdictRequest, http: Request) -> StreamingResponse:
     cache = quota.SITE_DATA if free else quota.READINGS
     key = "stream:" + quota.Cache.key(request.model_dump())
     cached = cache.get(key)
-    # joining a reading already under way costs nothing, starting one does
+    # joining a running job is free
     if cached is None and not free and jobs.REGISTRY.running() is None:
         _take(http, "reading")
     job, is_new = jobs.REGISTRY.start(tab, label)
@@ -229,6 +203,7 @@ def verdict_stream(request: VerdictRequest, http: Request) -> StreamingResponse:
 
     def work() -> None:
         if cached is not None:
+            # fake the wait so cached results don't pop instantly
             steps = cached["steps"]
             weights = [random.uniform(0.6, 1.6) for _ in range(len(steps) + 1)]
             total = random.uniform(*REPLAY_SECONDS)
@@ -251,7 +226,7 @@ def verdict_stream(request: VerdictRequest, http: Request) -> StreamingResponse:
             summary = trace.summary()
             cache.put(key, {"steps": steps, "summary": summary})
             job.finish(summary=summary)
-        except Exception as error:                       # reported, never swallowed
+        except Exception as error:
             job.finish(error=f"{type(error).__name__}: {error}")
 
     threading.Thread(target=work, daemon=True).start()
@@ -260,18 +235,13 @@ def verdict_stream(request: VerdictRequest, http: Request) -> StreamingResponse:
 
 @app.get("/api/jobs/current")
 def current_job() -> dict[str, Any]:
-    """What is being read right now, if anything.
-
-    A page that has just loaded asks this before showing an idle screen: if a
-    reading it started earlier is still going, it rejoins that instead.
-    """
+    """Lets a freshly loaded page rejoin a job that's still running."""
     job = jobs.REGISTRY.running()
     return {"job": job.describe() if job else None}
 
 
 @app.get("/api/jobs/{job_id}/stream")
 def job_stream(job_id: str, since: int = 0) -> StreamingResponse:
-    """Rejoin a reading, replaying the stages already produced."""
     job = jobs.REGISTRY.get(job_id)
     if job is None:
         raise HTTPException(404, "no such reading, it may have finished long ago")
@@ -279,7 +249,7 @@ def job_stream(job_id: str, since: int = 0) -> StreamingResponse:
 
 
 def validate_cascade(cascade: dict) -> str | None:
-    """Reject a malformed cascade with a message a person can act on."""
+    """Returns an error message, or None if the cascade looks ok."""
     if not isinstance(cascade, dict):
         return "the cascade must be a JSON object"
     nodes = cascade.get("nodes")
@@ -301,11 +271,11 @@ def validate_cascade(cascade: dict) -> str | None:
 
 @app.post("/api/fetch")
 def fetch(request: FetchRequest, http: Request) -> dict[str, Any]:
-    """Rebuild a live cascade from a Bluesky post URL.
+    """Build a cascade from a bsky.app post URL.
 
-    The account counters are fetched separately, because the views returned
-    beside posts do not carry them: without this second call the features would
-    silently be zeros, which is the bug the collected sample was built with.
+    Profiles have to be fetched separately: the post views don't include the
+    follower/post counts, and without them all features are 0 (we had that bug
+    in the first collection).
     """
     match = POST_URL.search(request.url)
     if not match:
@@ -329,15 +299,11 @@ def fetch(request: FetchRequest, http: Request) -> dict[str, Any]:
         if not post:
             raise HTTPException(404, "the post could not be read")
         cascade = collect_cascade(client, post, thread)
-        # trim before enriching: the counters are fetched twenty-five accounts
-        # at a time, and there is no point paying for accounts about to be cut
-        trim(cascade)
+        trim(cascade)   # before enrich, no point fetching profiles we drop
         enrich_profiles(client, cascade)
     except HTTPException:
         raise
     except urllib.error.HTTPError as error:
-        # a refusal from Bluesky is not a network failure, and saying so would
-        # send someone with a mistyped link off debugging their connection
         if error.code in (400, 404):
             raise HTTPException(
                 404, "Bluesky has no such post. Check the link, or use one of "
@@ -349,7 +315,7 @@ def fetch(request: FetchRequest, http: Request) -> dict[str, Any]:
         raise HTTPException(
             502, f"Bluesky answered {error.code}. The collected cascades work "
                  "offline.") from error
-    except Exception as error:                       # network, auth, timeout
+    except Exception as error:   # network / auth / timeout
         raise HTTPException(
             502, f"Bluesky could not be reached ({type(error).__name__}). "
                  "The collected cascades work offline.") from error
@@ -359,7 +325,7 @@ def fetch(request: FetchRequest, http: Request) -> dict[str, Any]:
 
 
 def trim(cascade: dict) -> None:
-    """Cut a live cascade to a size a demonstration can wait for."""
+    """Keep the first MAX_LIVE_ACCOUNTS nodes so a live fetch stays fast."""
     if len(cascade["nodes"]) <= MAX_LIVE_ACCOUNTS:
         return
     cascade["nodes"] = cascade["nodes"][:MAX_LIVE_ACCOUNTS]
@@ -370,16 +336,9 @@ def trim(cascade: dict) -> None:
 
 
 def enrich_profiles(client, cascade: dict, workers: int = 6) -> int:
-    """Fill the account counters, twenty-five accounts per call.
+    """Fetch profile counters in batches of 25, in parallel.
 
-    The calls are independent and each costs well over a second, so running
-    them one after another dominated the wait: sixteen batches took nearly forty
-    seconds while the person who pasted the link watched nothing happen. They
-    are issued concurrently instead, which is a handful of requests against a
-    limit measured in thousands per five minutes.
-
-    A batch that fails leaves its accounts as they were rather than aborting the
-    rest: a cascade with some counters is more useful than none.
+    Sequentially it took ~40s for a big cascade. A failed batch is skipped.
     """
     from concurrent.futures import ThreadPoolExecutor
 
@@ -411,19 +370,16 @@ def enrich_profiles(client, cascade: dict, workers: int = 6) -> int:
 
 @app.get("/api/results")
 def results() -> dict[str, Any]:
-    """What the article measured, so a live run can be read beside it."""
     return results_module.payload()
 
 
 @app.get("/api/data")
 def data() -> dict[str, Any]:
-    """The corpora in play, and how the collected labels were obtained."""
     return datasets_module.payload()
 
 
 @app.get("/api/quota")
 def usage(http: Request) -> dict[str, Any]:
-    """What this visitor has left today."""
     return quota.QUOTA.status(_visitor(http))
 
 
@@ -436,14 +392,8 @@ def health() -> dict[str, Any]:
             "samples": len(samples.load())}
 
 
-# ---------------------------------------------------------------------------
-# The built front end, when there is one.
-#
-# In development Vite serves it and this does nothing. A deployment builds it
-# into the image and mounts it here, so the container answers both the API and
-# the page from one origin and the reverse proxy in front has nothing to route.
-# It is mounted last: every /api route is already registered, so the catch-all
-# below can never shadow one.
+# serve the built front (web/dist) if it exists, i.e. in the docker image.
+# must stay at the end so the catch-all doesn't shadow /api routes
 _dist = Path(os.environ.get(
     "FACTNET_WEB_DIST",
     Path(__file__).resolve().parents[3] / "web" / "dist"))
@@ -456,9 +406,8 @@ if (_dist / "index.html").is_file():
 
     @app.get("/{path:path}", include_in_schema=False)
     def spa(path: str) -> FileResponse:
-        """Serve a real file when one exists, and the page otherwise."""
         candidate = (_dist / path).resolve()
-        # resolve() then compare, so ../ in a request cannot escape the tree
+        # no ../ escapes
         if path and candidate.is_file() and candidate.is_relative_to(_dist.resolve()):
             return FileResponse(candidate)
         return FileResponse(_dist / "index.html")

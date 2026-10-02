@@ -1,1 +1,1 @@
-"""factnet — social media misinformation detection."""
+"""factnet: misinformation detection on social media."""

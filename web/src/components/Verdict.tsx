@@ -1,14 +1,7 @@
 import Breakdown from "./Breakdown";
 import type { Trace } from "../lib/types";
 
-/**
- * The verdict, as a reading rather than a ruling.
- *
- * No coloured pill. A pill says "the system decided"; this system reports a
- * position and its distance from the boundary, which is the only claim the
- * measurement supports. Green and red are absent on purpose: they would import
- * a certainty, and a colour-blind reader would lose the distinction anyway.
- */
+/** Final verdict: position on the 0-1 axis, no green/red pill on purpose. */
 export default function Verdict({ trace }: { trace: Trace }) {
   const p = trace.verdict;
   const stopped = p === null;
@@ -41,9 +34,7 @@ export default function Verdict({ trace }: { trace: Trace }) {
             <div className="absolute inset-y-0 w-[3px] bg-ink transition-[left] duration-700"
                  style={{ left: `calc(${percent}% - 1px)`, transitionTimingFunction: "var(--ease-out-quint)" }} />
           </div>
-          {/* absolute rather than justify-between: the three labels differ in
-              width, so spreading them puts 0.5 next to the midpoint instead of
-              on it, which is the one place on this axis that has to be exact */}
+          {/* absolute positioning, justify-between put 0.5 off center */}
           <div className="relative mt-1.5 h-[1.3em] text-[11.5px] text-ink-faint">
             <span className="absolute left-0">misleading</span>
             <span className="tnum absolute left-1/2 -translate-x-1/2 font-mono">0.5</span>

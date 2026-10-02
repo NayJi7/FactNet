@@ -1,16 +1,6 @@
-"""Is early detection reading the cascade, or the root it never truncates?
-
-The early-detection result is that a model trained on complete cascades keeps
-its score when shown only the first fraction of one. The obvious reading is
-that the shape of a cascade is legible from its opening. There is a duller
-reading: breadth-first truncation always keeps node 0, node 0 is the news item,
-and under ``bert`` node 0 carries an embedding of the article. A model leaning
-on the root would score identically at every truncation level for the plain
-reason that nothing it uses has been removed.
-
-The two readings are told apart by masking the root's feature vector and
-running the same sweep. If the curve stays flat, the cascade is doing the work.
-If it falls away, the flatness was the root.
+"""Control: truncation always keeps the root, and with `bert` the root holds the
+article embedding. Mask the root features and redo the sweep. Still flat -> the
+cascade does the work, drops -> it was the root.
 
     uv run python -m factnet.graph.early_detection_control
 """
@@ -33,7 +23,7 @@ SEEDS = (0, 1, 2)
 
 
 def masked(dataset) -> list[Data]:
-    """Same cascades, same edges, the news node's features zeroed."""
+    """root features = 0"""
     out = []
     for g in dataset:
         x = g.x.clone()

@@ -1,10 +1,5 @@
-"""The content-side transfer experiment, on the parts that can silently rot.
-
-The headline of that experiment is a confound: a classifier reaches 0.889 on
-the collected posts by reading the link rather than the claim. That number is
-only meaningful if two things hold, and both are easy to break by accident
-later, so they are pinned here.
-"""
+"""nlp.ood_eval: the 0.889 comes from reading the link, these check the link
+stripping and the domain split stay correct."""
 
 from factnet.nlp.ood_eval import _domain_split, strip_links
 
@@ -56,13 +51,7 @@ def test_export_does_not_publish_the_label_beside_the_question():
 
 
 def test_influence_ranking_does_not_depend_on_its_weights():
-    """Both papers claim the ordering survives reweighting. It has to stay true.
-
-    The claim is about the merged network of collected cascades, which is dense
-    because accounts recur across cascades. A tree would not test it: k-core is
-    zero everywhere on a tree, so two of the three terms vanish and the score
-    reduces to a weighted sum of two measures that genuinely do trade off.
-    """
+    """Claimed in both papers. Needs overlapping cascades, on a single tree k-core is flat."""
     import networkx as nx
     from scipy.stats import spearmanr
 

@@ -1,11 +1,6 @@
-"""A small curated set of cascades that always works, network or not.
+"""A few collected cascades shipped with the app, so the demo works offline.
 
-A demonstration that depends on a live API is a demonstration that can fail in
-front of an audience, so a handful of real collected cascades are kept beside
-the code and offered as ready-made examples. They are chosen for contrast
-rather than for flattery: one that the detector reads correctly, one it gets
-wrong, one large and one small, so that the interface cannot be mistaken for a
-showcase of successes.
+Picked to show both sides: big/small, one the model gets right, one it gets wrong.
 
     uv run python -m factnet.serve.samples      # rebuild the selection
 """
@@ -15,7 +10,7 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
-# the posts behind the "Or try one" buttons, word for word (web/src/components/Examples.tsx)
+# must match the "Or try one" buttons exactly (web/src/components/Examples.tsx)
 EXAMPLE_POSTS = (
     "Doctors confirm the new vaccine has caused thousands of deaths that health "
     "agencies refuse to report.",
@@ -40,7 +35,6 @@ def load() -> list[dict]:
 
 
 def summaries() -> list[dict]:
-    """What the interface lists in its example picker."""
     out = []
     for index, cascade in enumerate(load()):
         out.append({"id": index,
@@ -54,12 +48,7 @@ def summaries() -> list[dict]:
 
 
 def detail(index: int) -> dict | None:
-    """Everything about one cascade, so a reader can see what a cascade is.
-
-    The dashboard shows this before any model runs: the post that started it,
-    what it linked to, how far it travelled and who carried it. A verdict on an
-    object nobody has looked at teaches nothing.
-    """
+    """Full info on one sample (post, link, shape, accounts) for the cascades tab."""
     loaded = load()
     if not 0 <= index < len(loaded):
         return None
@@ -74,8 +63,7 @@ def detail(index: int) -> dict | None:
     handles = [nodes[i].get("handle", "") for i in order]
     found = depths(data)
 
-    # a readable sample of the participants rather than all of them: the point
-    # is to show what kind of account is in here, not to list forty thousand
+    # first 40 is enough to get an idea
     people = [{"handle": handles[i] or f"A{i}",
                "kind": nodes[order[i]].get("kind", ""),
                "hops": found.get(i, None),
@@ -112,13 +100,7 @@ def detail(index: int) -> dict | None:
 
 
 def record(index: int) -> dict | None:
-    """One cascade as a reader would paste it, and nothing more.
-
-    The stored record carries the label, the annotator's verdict and several
-    bookkeeping keys. None of them is an input: the pipeline never reads a
-    label, and showing one in an example would suggest the system is handed the
-    answer. What is left is exactly the four fields a cascade needs.
-    """
+    """Sample stripped down to the input fields (no label, it isn't an input)."""
     loaded = load()
     if not 0 <= index < len(loaded):
         return None
@@ -136,7 +118,7 @@ def record(index: int) -> dict | None:
 
 
 def smallest() -> int:
-    """The index of the shortest cascade, which is the one to offer as an example."""
+    """Index of the smallest cascade."""
     loaded = load()
     if not loaded:
         return 0
@@ -144,14 +126,14 @@ def smallest() -> int:
 
 
 def _web_url(uri: str, handle: str) -> str:
-    """The post as a person would open it, rebuilt from the AT record key."""
+    """at:// uri -> bsky.app link"""
     if not uri or "/" not in uri:
         return ""
     return f"https://bsky.app/profile/{handle}/post/{uri.rsplit('/', 1)[-1]}"
 
 
 def build(count_per_bucket: int = 1) -> list[dict]:
-    """Pick contrasting cascades and record why each was kept."""
+    """Pick one cascade per bucket, with the reason in _why."""
     from factnet.ingestion.to_graph import cascade_to_pyg
     from factnet.serve.structure import pick_checkpoint, verdict
 

@@ -1,15 +1,7 @@
-"""Run one input through the whole system and record every stage.
+"""Runs one input through every stage and records a Step for each.
 
-The order of the stages is the order of the argument the project makes, not a
-convenience. Whether the text states a checkable claim is settled before any
-verdict is computed, because a verdict on a joke is noise dressed as a result.
-Content and structure are then read separately, so that the integration stage
-can show what the second adds to the first rather than asserting it. Influence
-comes last and deliberately carries its own refutation, since the ranking is
-structurally meaningful and diagnostically useless.
-
-Nothing here renders. Every stage appends a ``Step`` carrying its numbers and
-the data its figures need, and the interface decides how to draw them.
+Order: parse -> check-worthiness -> content -> structure -> integration ->
+influence -> verdict. No rendering here, the front draws the figures.
 """
 
 from __future__ import annotations
@@ -23,23 +15,20 @@ from factnet.serve import structure as structure_module
 from factnet.serve.registry import by_key, primary
 from factnet.serve.trace import Figure, Step, Trace, confidence_from
 
-# One marker of the rule set is worth 0.25, so this floor admits a sentence
-# carrying a single one and rejects a sentence carrying none. Raising it to 0.3
-# demanded two markers and rejected most single-clause headlines.
+# one rule marker = 0.25, so this lets through anything with at least one.
+# tried 0.3 (two markers), it rejected most short headlines
 CHECKWORTHY_FLOOR = 0.25
 
 
 def _parse_step(trace: Trace, text: str, data, handles, origin: str) -> bool:
-    """Report what actually arrived, and whether the features can be trusted."""
+    """Returns whether the profile features are usable."""
     detail: dict[str, Any] = {"origin": origin, "has_text": bool(text.strip())}
     has_features = True
     if data is not None:
         measured = structure_module.shape(data)
         detail |= measured
-        # three of the ten profile slots are always zero, because Bluesky
-        # exposes no verification flag, no geolocation and no list membership.
-        # A cascade whose features are all constant must not be scored by a
-        # model that expects them to vary.
+        # 3 of the 10 profile slots are always 0 on bluesky (no verified flag,
+        # no geo, no lists). if nothing varies, fall back to structure only
         varying = int((data.x.std(dim=0) > 1e-9).sum())
         detail["varying_features"] = varying
         detail["total_features"] = int(data.x.size(1))
@@ -47,9 +36,7 @@ def _parse_step(trace: Trace, text: str, data, handles, origin: str) -> bool:
         if not has_features:
             trace.warn("Account features are constant on this cascade, so the "
                        "structure-only detector is used.")
-        # Below this the object has no shape to read: the smallest cascade in
-        # either training corpus carries three accounts, and a detector handed
-        # fewer still returns a confident number because nothing in it abstains.
+        # too small to say anything, the model will still output something though
         if data.num_nodes < 5:
             trace.warn(f"This cascade has {data.num_nodes} accounts. The "
                        "detectors were trained on cascades of at least three "
@@ -84,13 +71,8 @@ def _checkworthy_step(trace: Trace, text: str) -> bool:
     return passes
 
 
-# Words that carry almost no information in English but appear in nearly every
-# English sentence. A text that contains none of them across a dozen words is
-# very likely not English, which matters because every content model here was
-# trained on English only and will answer anyway.
-# "no", "as", "e", "os" and the like are omitted deliberately: they are common
-# words in Romance languages too, and a marker that fires on both proves
-# nothing about which language it read.
+# cheap english check: real english text has some of these stopwords.
+# left out no/as/e/os... on purpose, they're also common in french/spanish/pt
 ENGLISH_MARKERS = frozenset(
     "the a an and or but of to in on at for with from by is are was were be been "
     "this that these those it its he she they we you not has have had will "
@@ -100,23 +82,15 @@ ENGLISH_MARKERS = frozenset(
 def _looks_english(text: str) -> bool:
     words = [w.strip(".,!?;:\"'()[]").lower() for w in text.split()]
     words = [w for w in words if w]
-    # A headline can be a dozen content words with one article in it, so the
-    # test only runs on a sentence long enough for the absence to mean
-    # something, and the bar is set where a real English post clears it.
-    if len(words) < 12:
+    if len(words) < 12:     # headlines are too short to tell
         return True
     return sum(1 for w in words if w in ENGLISH_MARKERS) / len(words) >= 0.10
 
 
 def _content_step(trace: Trace, text: str, model_key: str,
                   advisory: bool = False) -> float | None:
-    """Read the text. ``advisory`` means the reading is shown but not used.
-
-    A post below the check-worthiness floor still gets read when a cascade is
-    present, because refusing to display the reading would hide a judgement the
-    system made rather than explain it. The number is reported and excluded, and
-    the interface says which.
-    """
+    """Content reading. advisory=True: shown in the UI but not used for the verdict
+    (happens when the text fails check-worthiness but there's a cascade)."""
     card = by_key(model_key)
     if not _looks_english(text):
         trace.warn("This text does not look like English. Every content model "
@@ -195,11 +169,8 @@ def _structure_step(trace: Trace, data, handles, origin: str, has_features: bool
     return probability, checkpoint
 
 
-# The ablation has to run on the detector that produced the verdict above it,
-# not on one chosen again from the origin. Deciding twice let a pasted cascade
-# be read by the benchmark model in one step and by the Bluesky model in the
-# next, and the interface then printed the second number under the first one's
-# name. The pairing is keyed on the checkpoint itself so the two cannot drift.
+# keyed on the checkpoint actually used in _structure_step. picking it again
+# from the origin caused a bug where the two steps used different models
 SCORED_FOR = {
     "bigcn-upfd-profile.pt": "bigcn-upfd-profile-score.pt",
     "bigcn-collected.pt": "bigcn-collected-score.pt",
@@ -208,13 +179,9 @@ SCORED_FOR = {
 
 def _integration_step(trace: Trace, data, content_p: float, checkpoint: str,
                       counted: bool = True) -> float | None:
-    """The ablation, run on this cascade: the verdict with and without the text.
+    """Structural verdict with vs without the content score on the root.
 
-    ``counted`` is false when the content reading it attaches was excluded by
-    the check-worthiness gate. The stage still runs, because it is the one
-    place the two modules meet and dropping it silently would leave the reader
-    to guess why a promised stage never appeared, but its result is then shown
-    and not used.
+    counted=False -> still shown, but not used (content failed the gate).
     """
     from factnet.graph.integration import attach_scores
 
@@ -287,9 +254,7 @@ def _influence_step(trace: Trace, data, handles) -> None:
              "chance baseline. High rank means central to diffusion, nothing more."))
 
 
-# which reference averages a cascade should be read against, by where it came
-# from: comparing a Bluesky cascade to PolitiFact averages would invite exactly
-# the cross-platform confusion the project spent a phase demonstrating
+# which class averages to compare the cascade with
 CORPUS_FOR = {"bluesky": "bluesky", "cascade": "bluesky", "url": "bluesky",
               "benchmark": "politifact", "text": "politifact"}
 
@@ -298,14 +263,10 @@ def run(text: str = "", cascade: dict | None = None, data=None,
         content_model: str | None = None, origin: str = "text",
         corpus: str | None = None, graph_model: str | None = None,
         observed: int = 100, on_step=None) -> Trace:
-    """The whole system on one input, with every stage recorded.
+    """Full pipeline on one input.
 
-    ``observed`` is the share of the cascade the system is allowed to see, and
-    it is applied once, here, rather than at the stage that scores. Asking what
-    the system would have said early is not a question about the detector alone:
-    the shape, the influence ranking and the integration all have to see the
-    same truncated object, or the answer describes a situation that never
-    existed.
+    observed (%) truncates the cascade once, up front, so every step sees the
+    same partial cascade.
     """
     trace = Trace(input_kind=origin)
     if on_step is not None:
@@ -317,8 +278,6 @@ def run(text: str = "", cascade: dict | None = None, data=None,
         nodes = cascade["nodes"]
         order = sorted(range(len(nodes)), key=lambda i: nodes[i].get("kind") != "source")
         handles = [nodes[i].get("handle", "") for i in order]
-        # the picture needs these too: without them every edge reads as a repost
-        # and the largest audiences cannot be named
         kinds = structure_module.edge_kinds(cascade)
         followers = structure_module.node_followers(cascade, order)
         data = data if data is not None else cascade_to_pyg(cascade)
@@ -346,14 +305,13 @@ def run(text: str = "", cascade: dict | None = None, data=None,
         if _checkworthy_step(trace, text):
             content_p = _content_step(trace, text, content_model)
         elif not has_cascade:
-            # nothing else to read: the input was a sentence stating no claim
+            # just text and not a claim, stop here
             trace.label = "not a claim"
             trace.confidence = "high"
             trace.provenance = {"stopped_at": "check-worthiness"}
             return trace
         else:
-            # the wording carries no checkable claim, but the cascade is still a
-            # propagation object and the structural reading does not depend on it
+            # not a claim but we still have the cascade to read
             trace.warn("The text did not pass the check-worthiness stage, so its "
                        "content reading is shown for inspection only and takes no "
                        "part in the verdict.")
@@ -364,8 +322,7 @@ def run(text: str = "", cascade: dict | None = None, data=None,
         structure_p, checkpoint = _structure_step(trace, data, handles, origin,
                                                   has_features, corpus, graph_model,
                                                   kinds, followers)
-        # the ablation runs on whichever reading exists, including one the gate
-        # excluded, but only a counted reading is allowed to move the verdict
+        # an advisory reading is shown in the ablation but can't change the verdict
         reading = content_p if content_p is not None else advisory_p
         if reading is not None and has_features:
             combined = _integration_step(trace, data, reading, checkpoint,

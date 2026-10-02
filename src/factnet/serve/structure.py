@@ -1,20 +1,6 @@
-"""Read a cascade: its verdict, its shape, and how early that verdict appears.
+"""Graph side of a reading: verdict, cascade shape vs class averages, early curve.
 
-Three things are asked of a propagation graph here, and each one corresponds to
-a result the article reports rather than to a display idea.
-
-The verdict itself comes from a detector chosen for the platform the cascade
-comes from, because a model trained on the benchmark does not survive the move
-to another platform: applying the wrong one would show a confident number
-computed on nothing.
-
-The shape is set against the class averages measured on the benchmark, which is
-what makes a single cascade legible: a reader cannot tell whether ninety
-accounts is many without knowing what many looks like.
-
-The early-detection curve re-runs the verdict on truncated versions of this
-cascade, so the claim that the signal is present from a fifth of the diffusion
-is demonstrated on the object in front of the viewer instead of quoted.
+The detector is picked per platform (UPFD models don't transfer to Bluesky).
 """
 
 from __future__ import annotations
@@ -27,12 +13,8 @@ from torch_geometric.data import Data
 from factnet.serve.build import load_graph_model
 from factnet.serve.trace import Figure
 
-# Average cascade shape per class, as the article measures it. The two corpora
-# disagree in direction, and that is not a detail to smooth over: on GossipCop
-# false stories reach twice the accounts of true ones, while on PolitiFact the
-# true ones are the larger. A single pair of reference values would therefore be
-# a fiction, so the comparison is always drawn against the corpus the detector
-# was trained on.
+# mean cascade shape per class (numbers from the paper). careful, the direction
+# flips between corpora: fake > real on gossipcop, real > fake on politifact
 CLASS_SHAPES = {
     "politifact": {
         "misleading": {"accounts": 114.9, "depth": 3.62, "breadth": 71.8, "direct": 62.7},
@@ -42,8 +24,7 @@ CLASS_SHAPES = {
         "misleading": {"accounts": 76.2, "depth": 2.48, "breadth": 62.2, "direct": 60.6},
         "reliable":   {"accounts": 38.9, "depth": 2.54, "breadth": 27.9, "direct": 26.1},
     },
-    # measured on our own 400 labelled cascades, and the direction is reversed
-    # again: on Bluesky the credible outlets carry the far larger cascades
+    # our 400 labelled bluesky cascades, reliable ones are way bigger here
     "bluesky": {
         "misleading": {"accounts": 43.9, "depth": 1.4, "breadth": 40.3, "direct": 40.3},
         "reliable":   {"accounts": 259.0, "depth": 3.0, "breadth": 224.9, "direct": 224.9},
@@ -61,7 +42,7 @@ def _adjacency(data: Data) -> list[list[int]]:
 
 
 def depths(data: Data) -> dict[int, int]:
-    """Hops from the source, breadth first, the root being node zero."""
+    """BFS hops from the root (node 0)."""
     adjacency = _adjacency(data)
     seen = {0: 0}
     queue = deque([0])
@@ -86,11 +67,7 @@ def shape(data: Data) -> dict[str, float]:
 
 
 def truncate(data: Data, fraction: float) -> Data:
-    """The cascade as it stood after a fraction of it had spread.
-
-    Arrival times are not recorded, so breadth-first order stands in for them,
-    which is the same proxy the early-detection study uses.
-    """
+    """First `fraction` of the nodes in BFS order (no timestamps, BFS is the proxy)."""
     keep_count = max(1, int(round(fraction * data.num_nodes)))
     order = sorted(depths(data).items(), key=lambda kv: (kv[1], kv[0]))
     keep = {node for node, _ in order[:keep_count]}
@@ -104,12 +81,10 @@ def truncate(data: Data, fraction: float) -> Data:
 
 
 def survivors(data: Data, fraction: float) -> tuple[list[int], list[int]]:
-    """Which nodes and edges a truncation keeps, in the order it leaves them.
+    """Indices of the nodes/edges kept by truncate().
 
-    Everything the interface draws beside a cascade is a list running parallel
-    to the node or edge order: handles, follower counts, whether an edge was a
-    repost or a reply. Truncation renumbers both, so those lists have to be cut
-    the same way or a name ends up on the wrong dot.
+    Needed to cut handles, followers, edge kinds etc. the same way, otherwise
+    labels end up on the wrong node.
     """
     keep_count = max(1, int(round(fraction * data.num_nodes)))
     order = sorted(depths(data).items(), key=lambda kv: (kv[1], kv[0]))
@@ -120,13 +95,7 @@ def survivors(data: Data, fraction: float) -> tuple[list[int], list[int]]:
 
 
 def as_model_expects(data: Data, model: torch.nn.Module) -> Data:
-    """Present the cascade in the width the chosen detector was trained on.
-
-    The structure-only detector reads a single constant column, so a cascade
-    carrying the ten account features has to be stripped before it reaches it.
-    Passing the wrong width used to fail inside the first linear layer, well
-    away from the decision that caused it.
-    """
+    """Match x to the model input size (structure-only model wants 1 constant col)."""
     expected = int(getattr(model, "in_dim", data.x.size(1)))
     if data.x.size(1) == expected:
         return data
@@ -138,7 +107,7 @@ def as_model_expects(data: Data, model: torch.nn.Module) -> Data:
 
 @torch.no_grad()
 def verdict(data: Data, checkpoint: str) -> float:
-    """Probability the cascade carries reliable content."""
+    """p(reliable)"""
     model = load_graph_model(checkpoint)
     shaped = as_model_expects(data, model)
     batch = torch.zeros(shaped.num_nodes, dtype=torch.long)
@@ -147,7 +116,6 @@ def verdict(data: Data, checkpoint: str) -> float:
 
 
 def early_curve(data: Data, checkpoint: str) -> Figure:
-    """The verdict this model would have given at each stage of the diffusion."""
     points = []
     for fraction in TRUNCATIONS:
         partial = truncate(data, fraction)
@@ -164,7 +132,6 @@ def early_curve(data: Data, checkpoint: str) -> Figure:
 
 
 def shape_figure(measured: dict[str, float], corpus: str = "politifact") -> Figure:
-    """This cascade against what each class looks like on a given corpus."""
     reference = CLASS_SHAPES[corpus]
     rows = [{"metric": metric, "this": measured[metric],
              "misleading": reference["misleading"][metric],
@@ -180,19 +147,14 @@ def shape_figure(measured: dict[str, float], corpus: str = "politifact") -> Figu
 
 
 def edge_kinds(cascade: dict) -> list[str]:
-    """Edge kinds in the order ``cascade_to_pyg`` keeps them.
-
-    Every caller that draws a collected cascade needs these. Without them the
-    picture defaults every edge to a repost, which reports no replies at all and
-    contradicts the composition this project measured.
-    """
+    """repost/reply for each edge, same order as cascade_to_pyg."""
     index = {n["did"]: True for n in cascade["nodes"]}
     return [e.get("kind", "repost") for e in cascade["edges"]
             if e["source"] in index and e["target"] in index]
 
 
 def node_followers(cascade: dict, order: list[int]) -> list[int]:
-    """Follower counts in node order; slot 2 of the profile vector."""
+    """followers = profile[2]"""
     nodes = cascade["nodes"]
     return [int((nodes[i].get("profile") or [0] * 10)[2]) for i in order]
 
@@ -200,18 +162,10 @@ def node_followers(cascade: dict, order: list[int]) -> list[int]:
 def graph_figure(data: Data, handles: list[str] | None = None,
                  kinds: list[str] | None = None,
                  followers: list[int] | None = None) -> Figure:
-    """Nodes and links for the layout, carrying what makes the picture readable.
-
-    Depth alone is not enough to tell the story: a cascade in which one account
-    passes the post to two hundred others looks the same as one in which two
-    hundred accounts each pass it to one, unless the number of people who took
-    it from each account is drawn too.
-    """
+    """Nodes + links for the force graph. Node size = how many reposted from it."""
     found = depths(data)
-    # Reposts and replies are not the same act and must not be counted as one:
-    # a repost pushes the post to an account's own followers, a reply does not
-    # travel at all, and on a doubtful claim a reply is very often a correction.
-    # Two thirds of the edges collected here are replies.
+    # count reposts and replies separately, a reply doesn't spread anything
+    # (and ~2/3 of our edges are replies)
     kinds = list(kinds or [])
     onward: dict[int, int] = {}
     answered: dict[int, int] = {}
@@ -228,8 +182,6 @@ def graph_figure(data: Data, handles: list[str] | None = None,
               "depth": found.get(index, -1),
               "reposted_by": onward.get(index, 0),
               "replied_to_by": answered.get(index, 0),
-              # who an account could reach, which is what makes a name worth
-              # printing on the picture rather than hidden behind a hover
               "followers": int(audience[index]) if index < len(audience) else 0,
               "root": index == 0}
              for index in range(data.num_nodes)]
@@ -262,13 +214,10 @@ CHECKPOINT_FOR = {
 
 def pick_checkpoint(origin: str, has_features: bool,
                     forced: str | None = None) -> tuple[str, str, str]:
-    """Which detector applies, and why.
+    """-> (checkpoint file, registry key, reason shown in the UI).
 
-    Returns the checkpoint file, the registry key, and the reason to display.
-    A forced choice is honoured, because being able to apply the benchmark
-    detector to a Bluesky cascade and watch it collapse is the point of the
-    transfer experiment; the reason string then says plainly that the model is
-    being used outside the platform it was trained on.
+    A forced model is always used, even a UPFD one on Bluesky data (that's the
+    transfer failure we want to be able to show).
     """
     if forced and forced in CHECKPOINT_FOR:
         mismatched = origin in ("bluesky", "url", "cascade") and "upfd" in forced
@@ -282,13 +231,7 @@ def pick_checkpoint(origin: str, has_features: bool,
         return ("bigcn-structure.pt", "bigcn-structure",
                 "Account features are missing or constant on this input, so only "
                 "the shape of the cascade is read.")
-    # A pasted cascade and one fetched from a link arrive in the collector's
-    # record format, so they are the same kind of object as a collected one and
-    # get the same detector. The branch above already treats all three as "not
-    # the benchmark" when a model is forced, and the default has to agree with
-    # it: the alternative is scoring a Bluesky-shaped cascade with the benchmark
-    # model while comparing its shape to Bluesky averages, which is the
-    # cross-platform error this project exists to report.
+    # pasted / fetched cascades are in the collector format too -> bluesky model
     if origin in ("bluesky", "url", "cascade"):
         return ("bigcn-collected.pt", "bigcn-collected",
                 "Trained on collected Bluesky cascades, which is the format this "

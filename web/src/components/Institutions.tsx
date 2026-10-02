@@ -1,12 +1,6 @@
 import { useEffect, useState } from "react";
 
-/**
- * The two institutions behind the work.
- *
- * The marks are optional files: if one is missing the name is set in type
- * instead, so the interface never shows a broken image during a demonstration.
- * Drop `um.png` and `ct.png` (or .svg) into web/public/logos/ to use them.
- */
+/** UM + CY Tech logos in the footer (web/public/logos/), falls back to the name if missing. */
 const MARKS = [
   { key: "um", name: "Universiti Malaya", detail: "FSKTM",
     url: "https://fsktm.um.edu.my/" },
@@ -20,9 +14,7 @@ function Mark({ file, name, detail, url }:
               { file: string; name: string; detail: string; url: string }) {
   const [src, setSrc] = useState<string | null>(null);
 
-  // The image is probed by decoding it, not by asking the server: a dev server
-  // answers 200 to any path, so a HEAD request would report every mark present
-  // and the footer would fill with broken images during a demonstration.
+  // check by actually loading the image, vite dev returns 200 for any path
   useEffect(() => {
     let cancelled = false;
     (async () => {

@@ -1,11 +1,4 @@
-/**
- * Account handles, shown as people rather than as addresses.
- *
- * Bluesky gives every account a handle under `.bsky.social` unless it proves
- * ownership of a domain. The default suffix carries no information and repeats
- * on almost every row, so it is dropped; a custom domain is kept, because there
- * the suffix *is* the information: `reuters.com` is the outlet itself.
- */
+/** Handle display: drop ".bsky.social", keep custom domains (reuters.com is the info). */
 
 const DEFAULT_SUFFIX = ".bsky.social";
 
@@ -16,12 +9,7 @@ export function shortHandle(handle: string): string {
     : handle;
 }
 
-/** The glyph, as a bare SVG string so it can also go in a canvas tooltip.
- *
- * It inherits `currentColor` by default, so the mark always matches whatever
- * colour the surrounding text is: the graph tooltip is drawn light on dark and
- * a fixed ink value would have shown as a smudge there.
- */
+/** bluesky glyph as an svg string (also used in the canvas tooltip). currentColor. */
 export const personGlyph = (size = 11, colour = "currentColor") =>
   `<svg width="${size}" height="${size}" viewBox="0 0 16 16" fill="none" ` +
   `stroke="${colour}" stroke-width="1.4" stroke-linecap="round" ` +

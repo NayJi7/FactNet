@@ -4,14 +4,7 @@ import { SPECIMENS, spread } from "./specimens";
 import type { ModelCard } from "../lib/types";
 import type { Module } from "../lib/types";
 
-/**
- * The opening statement.
- *
- * Rather than an empty panel, the interface opens on the finding that motivates
- * it, and on what a reading will actually contain. The numbers are stored
- * readings from this system, not an illustration, and the sentence is one an
- * antivaccine account would recognise as its own.
- */
+/** Landing example: a real post with the stored outputs of the models. */
 const STAGES: [string, Module, string][] = [
   ["Is it a claim at all", "content", "Opinions, jokes and questions are set aside before any verdict, and the interface says so rather than scoring them anyway."],
   ["What the text says", "content", "Attention over the tokens, then each token removed in turn to measure what actually moved the answer, then all five models on the same input."],
@@ -21,8 +14,7 @@ const STAGES: [string, Module, string][] = [
 ];
 
 export default function Specimen({ models = [] }: { models?: ModelCard[] }) {
-  // drawn once per page, so a reload shows a different one and no single
-  // example can look like the one that was chosen because it flattered
+  // random one per page load
   const [pick] = useState(() => Math.floor(Math.random() * SPECIMENS.length));
   const { claim, readings, lesson } = SPECIMENS[pick];
   const gap = spread(readings);

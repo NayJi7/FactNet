@@ -1,18 +1,9 @@
 import type { Step, Trace } from "../lib/types";
 
 /**
- * Which module said what, and what their meeting was worth.
- *
- * The headline verdict is one number, and one number hides the thing this
- * project is about: two systems read the same post through different organs and
- * do not have to agree. Both readings are put on the axis the verdict uses, in
- * the colours their marks carry everywhere else.
- *
- * The last line is the one that has to be careful. There is no weighting here
- * to report, because there is no weighted average: the content score enters the
- * propagation model as a feature and that model decides. What can be measured
- * is how far the structural verdict moved when the score was attached, so that
- * is what is shown, taken from the ablation run on this very cascade.
+ * Content vs propagation reading under the verdict, + how much the structural
+ * verdict moved when the content score was added (it's a feature, not a
+ * weighted average, so there's no weight to show).
  */
 interface Mark {
   key: "content" | "propagation" | "both";
@@ -46,7 +37,7 @@ function build(steps: Step[]): { marks: Mark[]; moved: number | null; counted: b
     });
   }
   if (structure && typeof structure.detail.p_reliable === "number") {
-    // before the content score was attached, which is the structural reading
+    // structure alone
     const alone = typeof integration?.detail.without_score === "number"
       ? integration.detail.without_score : structure.detail.p_reliable;
     marks.push({
@@ -106,11 +97,8 @@ export default function Breakdown({ trace }: { trace: Trace }) {
         ))}
       </div>
 
-      {/* the axis has to sit under the bars, not under the row: each row is a
-          180px name, the track, then a 52px figure, so the labels are given the
-          same gutters. Inside the track they are placed absolutely, because
-          three labels of unequal width spread by justify-between put 0.5 beside
-          the midpoint rather than on it. */}
+      {/* same gutters as the rows (180px / 52px). labels absolute, justify-between
+          put 0.5 off center */}
       <div className="mt-2 flex items-center gap-3 text-[11.5px] text-ink-faint">
         <span className="w-[180px] shrink-0" aria-hidden />
         <div className="relative h-[1.3em] flex-1">

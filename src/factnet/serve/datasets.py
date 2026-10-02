@@ -1,12 +1,6 @@
-"""What the system was trained and tested on, and how the labels were obtained.
+"""Data tab: the 3 corpora (UPFD, LIAR, our Bluesky sample) and how we labelled ours.
 
-A dashboard that shows verdicts without showing their provenance invites the
-reader to take the model's word for it. This module describes the three corpora
-in play, and is deliberately explicit about the one whose labels we produced
-ourselves, since that is the one a reviewer would question first.
-
-The collected figures are measured from the file on disk rather than written
-down, so they cannot drift away from the data the models actually saw.
+Bluesky numbers are computed from the file, not hardcoded.
 """
 
 from __future__ import annotations

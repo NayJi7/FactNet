@@ -1,10 +1,7 @@
-"""Explain the content-based verdicts (first explainability results).
+"""Explanations for TF-IDF + logreg: contribution = tfidf * coef, exact, no LIME needed.
 
-For the linear TF-IDF + logistic-regression model the explanation is exact:
-a word's contribution to a verdict is its TF-IDF weight times its coefficient
-(no sampling approximation needed, unlike LIME on black-box models). Reports
-the strongest global cues per class and decomposes a few test statements.
-LIME / attention on the fine-tuned transformer follow on GPU.
+Prints top cues per class and a few test statements. Transformer side is in
+the kaggle notebook.
 
     uv run python -m factnet.nlp.explain
 """

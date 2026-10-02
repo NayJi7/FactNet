@@ -1,23 +1,9 @@
-"""The influence result, once cascade size is closed off as a route.
+"""influence_veracity, but also controlling for cascade size.
 
-``influence_veracity`` already refuses two easy mistakes: it scores against the
-share of account *slots* rather than the share of cascades, and it shuffles
-influence only among accounts of equal activity, so that appearing often cannot
-be credited to influence.
-
-One route stays open, and it is the one this project keeps finding elsewhere.
-Reliable cascades on the collected sample are large and misleading ones small.
-An account that lands in a large cascade collects more edges in the merged
-network, so it earns a higher reach and a higher PageRank for a reason that has
-nothing to do with its behaviour, and the cascade it landed in was probably
-reliable. Influence and misleading share are therefore tied together by size
-before any account does anything at all.
-
-Stratifying on activity does not close that route, because two accounts can
-appear in the same number of cascades and in cascades of very different sizes.
-This module measures the route, then shuts it, by shuffling influence only
-among accounts that match on activity *and* on the size of the cascades they
-took part in.
+Reliable cascades are big, so being in one gives you more edges (higher reach /
+pagerank) and a lower misleading share, with no behaviour involved. Stratifying
+on activity alone doesn't fix that, so here the null shuffles within
+(activity, cascade size) strata.
 
     uv run python -m factnet.graph.influence_size_control
 """
@@ -41,7 +27,7 @@ SIZE_BUCKETS = 4
 
 
 def account_context(path) -> tuple[dict[str, list[int]], dict[str, list[int]]]:
-    """Per account: the label of each cascade it joined, and each cascade's size."""
+    """{account: labels}, {account: cascade sizes}"""
     labels: dict[str, list[int]] = defaultdict(list)
     sizes: dict[str, list[int]] = defaultdict(list)
     for cascade in read_cascades(path):
@@ -56,7 +42,7 @@ def account_context(path) -> tuple[dict[str, list[int]], dict[str, list[int]]]:
 
 
 def _buckets(values: list[float], count: int) -> list[int]:
-    """Quantile buckets, so each holds a comparable number of accounts."""
+    """quantile buckets"""
     order = sorted(range(len(values)), key=lambda i: values[i])
     out = [0] * len(values)
     for position, index in enumerate(order):
@@ -66,7 +52,7 @@ def _buckets(values: list[float], count: int) -> list[int]:
 
 def double_stratified_null(influences, shares, strata, rounds=PERMUTATIONS,
                            seed=SEED) -> tuple[float, float, float]:
-    """Observed rho, its p-value, and the mean rho the null itself produces."""
+    """-> (rho, p, mean null rho)"""
     groups: dict[tuple, list[int]] = defaultdict(list)
     for index, stratum in enumerate(strata):
         groups[stratum].append(index)
@@ -89,15 +75,10 @@ def double_stratified_null(influences, shares, strata, rounds=PERMUTATIONS,
 
 
 def within_strata_rho(influences, shares, strata) -> float:
-    """The association left once each stratum is centred on its own mean.
+    """Spearman after centring each stratum on its mean rank.
 
-    A permutation null that shuffles inside strata cannot move an account whose
-    stratum holds only itself, so when many strata are singletons the null keeps
-    part of the observed association and is no longer centred on zero. Its mean
-    then has no interpretation, and neither does the difference between it and
-    the observed value. Subtracting each stratum's mean rank from its members
-    measures the same quantity without that defect: what is left is variation in
-    influence among accounts matched on activity and cascade size.
+    Needed because lots of strata have a single account, and the permutation null
+    can't shuffle those, so it isn't centred on 0 anymore.
     """
     from scipy.stats import rankdata
 
@@ -108,7 +89,7 @@ def within_strata_rho(influences, shares, strata) -> float:
     ri, rs = rankdata(influences), rankdata(shares)
     ci, cs = [], []
     for members in groups.values():
-        if len(members) < 2:          # nothing to compare an account against
+        if len(members) < 2:
             continue
         mi = st.fmean(ri[m] for m in members)
         ms = st.fmean(rs[m] for m in members)

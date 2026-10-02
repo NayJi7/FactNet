@@ -1,9 +1,6 @@
-"""Account-influence scoring on propagation graphs (the module's contribution).
+"""Influence score = 0.5 reach + 0.3 PageRank + 0.2 k-core, and the top spreaders.
 
-Combines structural measures — k-core coreness and PageRank — with a degree
-(activity) proxy into a single influence score, and ranks the top spreaders.
-On UPFD the nodes are anonymised per cascade; on real collected data (Bluesky)
-the same ranking maps to identifiable accounts.
+On UPFD nodes are anonymous per cascade, on bluesky they're real accounts.
 
     uv run python -m factnet.graph.influence
 """
@@ -29,7 +26,7 @@ def _normalise(d: dict) -> dict:
 
 
 def build_graph(name: str = "politifact", feature: str = "profile", split: str = "train"):
-    """Union of all cascades into one directed graph, nodes tagged by cascade."""
+    """all cascades in one DiGraph"""
     ds = UPFD(ROOT, name, feature, split=split)
     g = nx.DiGraph()
     for i, data in enumerate(ds):
@@ -39,14 +36,8 @@ def build_graph(name: str = "politifact", feature: str = "profile", split: str =
 
 
 def build_graph_from_collected(path: str | Path):
-    """Union of collected cascades, keyed by account so the same handle recurs.
-
-    Unlike the benchmark, where accounts are anonymised per cascade, a real
-    account appears in every cascade it took part in; merging on the account
-    identity is what turns the ranking into a statement about people rather than
-    about graph positions, and it is what makes k-core meaningful, since the
-    union is no longer a forest of disjoint trees.
-    """
+    """Same but merged on the account, so one account = one node across cascades
+    (otherwise k-core is useless, it's just a forest of trees)."""
     from factnet.ingestion.to_graph import read_cascades
 
     g = nx.DiGraph()
@@ -58,18 +49,17 @@ def build_graph_from_collected(path: str | Path):
             g.nodes[did]["cascades"] += 1
         for edge in cascade["edges"]:
             source, target = edge["source"], edge["target"]
-            # authors often reply within their own thread: that is not a share
+            # self-replies in a thread, not a share
             if source != target and source in handles and target in handles:
                 g.add_edge(source, target)
     return g
 
 
 def influence_ranking(g: nx.DiGraph, top_k: int = 15):
-    # Downstream reach (subtree size) = spreading power on a cascade; PageRank and
-    # k-core are the structural measures (k-core is trivial on trees, but carries
-    # signal on the denser reshare networks of real collected data).
+    # reach = subtree size. k-core only means something on the merged bluesky graph
     pagerank = _normalise(nx.pagerank(g))
-    undirected = nx.Graph(g)  # drops direction and any self loop k-core rejects
+    undirected = nx.Graph(g)
+    # k_core refuses self loops
     undirected.remove_edges_from(nx.selfloop_edges(undirected))
     coreness = _normalise(nx.core_number(undirected))
     reach = _normalise({n: len(nx.descendants(g, n)) for n in g})

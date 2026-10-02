@@ -3,17 +3,11 @@ import Spreading from "./Spreading";
 import type { Step } from "../lib/types";
 
 /**
- * What the interface shows while a reading is computed.
+ * Loading state: finished steps with their numbers, upcoming ones greyed out.
+ * Indeterminate bar on purpose, we don't know the progress inside a step.
  *
- * The engine reports each stage as it lands, so the ones already finished are
- * shown with their real numbers and the ones still to come are named. The bar
- * stays indeterminate: what is known is which stage is running, not how far
- * through it the engine is, and a bar that implied otherwise would be a lie
- * drawn in pixels.
- *
- * The names here have to match the stages the engine actually appends, in
- * order. They drifted once, listing a figure as though it were a stage and
- * omitting two real ones, which made the counter read "4 of 3".
+ * NB the names must match the steps in pipeline.py, in order (they got out of
+ * sync once and it showed "4 of 3").
  */
 const TEXT_STAGES = [
   "reading what came in",
@@ -32,8 +26,7 @@ export default function Pending({ withCascade, done = [], rejoined = false, labe
                                 { withCascade: boolean; done?: Step[];
                                   rejoined?: boolean; label?: string;
                                   elapsed?: number }) {
-  // The reading is older than this page whenever the page was reloaded, so the
-  // clock starts where the engine says the work started, not at zero.
+  // after a reload, start the timer from the job's start time, not 0
   const [seconds, setSeconds] = useState(() => Math.round(elapsed));
   useEffect(() => {
     setSeconds(Math.round(elapsed));
@@ -42,9 +35,7 @@ export default function Pending({ withCascade, done = [], rejoined = false, labe
   }, [elapsed]);
 
   const stages = [...TEXT_STAGES, ...(withCascade ? CASCADE_STAGES : []), VERDICT_STAGE];
-  // a run that stops at the gate emits fewer stages than were named, and one
-  // that skips the ablation emits fewer still, so the count follows whichever
-  // is larger and never reads "7 of 6"
+  // some runs skip steps, use the max so it never says "7 of 6"
   const total = Math.max(stages.length, done.length);
   const pending = stages.slice(done.length);
 
@@ -72,7 +63,7 @@ export default function Pending({ withCascade, done = [], rejoined = false, labe
       </div>
 
       <ol className="mt-8">
-        {/* what has already landed, with its real numbers */}
+        {/* done */}
         {done.map((step, index) => (
           <li key={step.key}
               className="settle grid grid-cols-[112px_1fr] gap-8 border-t border-rule py-5 first:border-t-0">
@@ -87,7 +78,7 @@ export default function Pending({ withCascade, done = [], rejoined = false, labe
             </div>
           </li>
         ))}
-        {/* and what is still to come, named but empty */}
+        {/* upcoming */}
         {pending.map((stage, index) => (
           <li key={stage}
               className="grid grid-cols-[112px_1fr] gap-8 border-t border-rule py-5 first:border-t-0">

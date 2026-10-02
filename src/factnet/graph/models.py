@@ -1,10 +1,4 @@
-"""Graph neural networks for propagation-based misinformation detection.
-
-Graph-level classification of propagation cascades (fake / real):
-- ``GCN`` / ``GAT``: standard message-passing baselines.
-- ``BiGCN``: bidirectional model reading the cascade top-down (propagation)
-  and bottom-up (dispersion), following Bian et al. (2020).
-"""
+"""GCN, GAT and Bi-GCN (Bian et al. 2020) for graph classification."""
 
 from __future__ import annotations
 
@@ -43,8 +37,7 @@ class GAT(torch.nn.Module):
 
 
 class BiGCN(torch.nn.Module):
-    """Bidirectional GCN: a top-down branch on the propagation edges and a
-    bottom-up branch on the reversed edges, pooled and concatenated."""
+    """top-down GCN on the edges + bottom-up on reversed edges, pooled, concat"""
 
     def __init__(self, in_dim: int, hidden: int, num_classes: int):
         super().__init__()

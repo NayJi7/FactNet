@@ -1,16 +1,9 @@
 import type { Module } from "../lib/types";
 
 /**
- * Every headline figure on one axis, in order.
- *
- * A row of big numbers is the shape every dashboard reaches for, and it hides
- * what each figure has to be read against. Detection at 0.920 means nothing
- * until the model that reads no edge sits beside it at 0.940. On a shared axis
- * that comparison is the first thing the eye does, before a word is read.
- *
- * Ordered by value rather than by importance, so the reader discovers the
- * ordering instead of being told it. The floor is where a single fixed guess
- * lands, and the axis starts there because nothing below it is a result.
+ * Main scores on one axis, sorted by value, next to their baselines
+ * (0.920 only means something next to the 0.940 with no edges).
+ * Axis starts at the constant-guess floor.
  */
 interface Mark {
   label: string;
@@ -70,8 +63,7 @@ export default function Spine({ marks, unit }: { marks: Mark[]; unit: string }) 
                        opacity: weak ? 0.3 : 0.85,
                        transitionTimingFunction: "var(--ease-out-quint)",
                      }} />
-                {/* a baseline is a threshold, not a quantity, so it is drawn as
-                    a line across the track rather than as a filled bar */}
+                {/* baselines = tick, not bar */}
                 {weak && (
                   <div className="absolute inset-y-0 w-px bg-ink-faint"
                        style={{ left: `${place(mark.value)}%` }} aria-hidden />

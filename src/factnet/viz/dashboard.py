@@ -1,8 +1,5 @@
-"""Dashboard: browse propagation cascades, their spreaders and their verdicts.
-
-Reads either a benchmark dataset (UPFD) or a file of cascades collected from
-Bluesky, draws the selected cascade, ranks the accounts that carry it, and
-shows the content credibility score alongside the structural verdict.
+"""Old streamlit viewer (the real dashboard is web/). Browse UPFD or bluesky
+cascades, top spreaders, content score next to the graph verdict.
 
     uv run streamlit run src/factnet/viz/dashboard.py
 """

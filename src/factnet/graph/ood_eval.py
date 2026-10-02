@@ -1,17 +1,7 @@
-"""Cross-platform test: a detector trained on Twitter, evaluated on Bluesky.
+"""Train on UPFD (twitter), test as-is on our Bluesky cascades.
 
-This is the experiment the collected sample was gathered for. A model is trained
-on the benchmark cascades and then applied, unchanged, to cascades collected
-from a different platform whose labels come from the credibility of the source
-rather than from the benchmark's fact-checkers.
-
-Two variants are run, and the distinction matters for what may be concluded.
-The first keeps the account features, which are computed differently on each
-platform because the two expose different counters: a drop there cannot be
-attributed to structure alone. The second replaces every node feature by a
-constant, so the model can only read the shape of the cascade; that variant is
-the honest test of the project's structural claim, since nothing but the
-topology survives the move between platforms.
+Two runs: with the profile features (not comparable across platforms) and with
+constant features, i.e. structure only, which is the fair one.
 
     uv run python -m factnet.graph.ood_eval
 """
@@ -42,13 +32,12 @@ RESULTS = Path(__file__).resolve().parents[3] / "data" / "results"
 
 
 def strip_features(dataset) -> list[Data]:
-    """Replace node features by a constant, leaving only the graph shape."""
+    """x = 1"""
     return [Data(x=torch.ones(d.num_nodes, 1), edge_index=d.edge_index, y=d.y)
             for d in dataset]
 
 
 def collected_graphs() -> tuple[list[Data], list[str]]:
-    """The collected cascades as graphs, with the source domain of each."""
     graphs, domains = [], []
     for cascade in read_cascades(COLLECTED):
         if cascade.get("label") is None:
@@ -94,7 +83,7 @@ def run(dataset: str = "gossipcop") -> None:
     collected, domains = collected_graphs()
     strict = very_low_domains()
     strict_idx = [i for i, d in enumerate(domains) if d in strict
-                  or int(collected[i].y) == 1]  # the reliable side is unchanged
+                  or int(collected[i].y) == 1]
     print(f"trained on UPFD {dataset}: {len(train_ds)} cascades")
     print(f"collected: {len(collected)} cascades, "
           f"of which {len(strict_idx)} in the strict subset\n")

@@ -1,14 +1,6 @@
 import type { Module } from "../lib/types";
 
-/**
- * Which half of the project a stage or a table comes from.
- *
- * The work is split into two modules written up as two papers, and a viewer
- * looking at a number here has no way to tell which paper to check it against
- * unless the interface says so. The mark is a coloured rule and a word, not a
- * filled badge: it has to be findable when scanning down the page and quiet
- * enough to ignore while reading across it.
- */
+/** Content / Propagation / Both tag (left border + word, not a badge). */
 export const MODULE_NAMES: Record<Module, string> = {
   content: "Content",
   propagation: "Propagation",
@@ -33,7 +25,7 @@ export default function ModuleTag({ module, className = "" }:
   );
 }
 
-/** The key, shown once per view so the colours mean something on first sight. */
+/** legend */
 export function ModuleLegend({ className = "" }: { className?: string }) {
   return (
     <div className={`flex flex-wrap items-start gap-x-8 gap-y-3 ${className}`}>

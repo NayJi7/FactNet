@@ -3,16 +3,7 @@ import FigureView from "./Figures";
 import ModuleTag from "./ModuleTag";
 import type { Step } from "../lib/types";
 
-/**
- * The reasoning, as one continuous document.
- *
- * Not cards: a card implies each stage is a separable unit, and these are not.
- * Stage four only means something given stage three. Hairlines and a marginal
- * column carry the separation instead, the way a technical report does.
- *
- * Steps are numbered because this genuinely is a sequence, and skipping one is
- * itself a reported outcome.
- */
+/** The steps of a reading, numbered, separated by lines (no cards). */
 
 const STATUS: Record<Step["status"], { mark: string; tone: string; word: string }> = {
   ok:      { mark: "", tone: "text-ink-faint", word: "" },
@@ -93,13 +84,8 @@ export default function StepList({ steps }: { steps: Step[] }) {
                       {step.note}
                     </p>
                   )}
-                  {/* Two abreast once there is room. Attention beside occlusion
-                      is also the comparison the pair exists to invite, so this
-                      shortens the page and sharpens the point at once. A graph,
-                      a curve, the model comparison and any table keep the full
-                      measure: the comparison carries the evidence for every
-                      model at once, and a five-column table in half a column
-                      can never show its last two, whatever the reader does. */}
+                  {/* token figures 2 per row on wide screens (attention next to
+                      occlusion), graphs / tables / comparison stay full width */}
                   <div className="grid gap-x-10 xl:grid-cols-2">
                     {step.figures.map((figure, i) => (
                       <div key={i}

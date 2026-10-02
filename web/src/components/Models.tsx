@@ -5,18 +5,8 @@ import Modules from "./Modules";
 import { ModuleLegend } from "./ModuleTag";
 import type { ModelCard } from "../lib/types";
 
-/**
- * Everything the reader might want to know about what is doing the reading.
- *
- * These three blocks used to sit stacked under the opening example, where the
- * page had already said its piece and nobody scrolled that far. A viewer who
- * wonders which of eleven names to trust has a question, and a question
- * deserves a place to go rather than a paragraph they have to find.
- *
- * The order answers the question in the order it is asked: which half is this,
- * then who reads the text, then who reads the cascade. The index follows the
- * scroll, as it does on the other two long pages.
- */
+/** Models tab: the two modules, then content models, then graph models.
+ *  (used to be under the example on the first page, nobody scrolled there) */
 const SECTIONS: [string, string][] = [
   ["halves", "The two halves"],
   ["content", "Content readers"],

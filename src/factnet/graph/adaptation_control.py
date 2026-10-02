@@ -1,21 +1,8 @@
-"""Was the benchmark initialisation obstructive, or just under-trained?
+"""Control for adaptation.py: fine-tune vs scratch with the same training budget.
 
-The adaptation result says that starting from the benchmark-trained detector is
-worse than starting from nothing, at every budget of target labels, and that
-the gap never closes. Read literally it is a strong claim: what the model
-learned on Twitter cascades actively prevents it learning Bluesky ones.
-
-The two arms were not given the same chance. Fine-tuning ran for 30 epochs at a
-learning rate of 0.002 and training from scratch for 60 at 0.01, so the model
-carrying the benchmark's weights also got half the steps at a fifth the step
-size. A handicap that size produces an under-trained model whether or not the
-initialisation is harmful, and the published table cannot tell the two apart.
-
-Here every arm gets the same epochs on the same cascades with the same seeds,
-and the fine-tuned arm is additionally given the best of a small learning-rate
-grid, which if anything favours the claim being tested. If the gap survives
-that, it is a property of the initialisation. If it closes, it was the
-protocol.
+In adaptation.py fine-tuning got 30 epochs at lr 0.002 and scratch 60 at 0.01,
+so fine-tuning was just under-trained maybe. Here same epochs and seeds, and
+fine-tuning gets a small lr grid on top.
 
     uv run python -m factnet.graph.adaptation_control
 """

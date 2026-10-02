@@ -1,19 +1,9 @@
-"""Fetch the account counters the cascade collector never received.
+"""Fix for the zero-features bug: fetch real profiles for every collected account.
 
-Nodes were built from the account views that travel beside posts, and those
-views (ProfileView, ProfileViewBasic) carry no follower, following or post
-counter. Because the feature builder reads them with a defaulting ``get``, the
-six affected slots were filled with zeros silently, across every collected
-node, rather than failing. Only ``app.bsky.actor.getProfiles`` returns the
-detailed view that holds them, twenty-five accounts per call.
-
-This module collects those profiles once and caches them by DID, so that the
-node features can be rebuilt without touching the cascades themselves: the
-topology is unaffected by the bug and must not be re-collected.
-
-The run is resumable. Accounts that answer are cached with their profile,
-accounts that do not (deleted, suspended, or invalid) are cached as null, so
-that a restart skips both instead of retrying deletions forever.
+The first collection built features from ProfileView, which has no counters, and
+.get(..., 0) hid it, so 6 slots were 0 everywhere. getProfiles has them (25/call).
+Results are cached by DID; dead accounts are cached as null so we don't retry them.
+Resumable.
 
     uv run python -u -m factnet.ingestion.fetch_profiles
 """
@@ -30,12 +20,11 @@ from factnet.ingestion.bluesky import BlueskyClient
 DATA = Path(__file__).resolve().parents[3] / "data" / "raw" / "bluesky"
 DEFAULT_SOURCES = [DATA / "cascades-by-source.jsonl"]
 CACHE = DATA / "profiles.json"
-SAVE_EVERY = 20  # batches between checkpoints
-DONE = "PROFILE-FETCH-COMPLETE"  # final sentinel, watched by the monitor
+SAVE_EVERY = 20  # batches
+DONE = "PROFILE-FETCH-COMPLETE"  # printed at the end, I grep for it
 
 
 def unique_dids(paths: list[Path]) -> list[str]:
-    """Every distinct account appearing in the given cascade files, in order."""
     seen: dict[str, None] = {}
     for path in paths:
         with path.open(encoding="utf-8") as handle:
@@ -55,19 +44,17 @@ def load_cache(path: Path) -> dict[str, dict | None]:
         return {}
     try:
         return json.loads(path.read_text(encoding="utf-8"))
-    except json.JSONDecodeError:      # a checkpoint interrupted mid-write
+    except json.JSONDecodeError:      # killed mid-write
         return {}
 
 
 def save_cache(cache: dict, path: Path) -> None:
-    """Write through a temporary file so a reader never sees a partial cache."""
     tmp = path.with_suffix(".tmp")
     tmp.write_text(json.dumps(cache), encoding="utf-8")
     tmp.replace(path)
 
 
 def keep(profile: dict) -> dict:
-    """Only the fields the node features read, so the cache stays small."""
     return {k: profile.get(k) for k in
             ("did", "handle", "displayName", "description", "createdAt",
              "followersCount", "followsCount", "postsCount")}
@@ -102,13 +89,13 @@ def main() -> None:
             failures += 1
             print(f"  batch {number}: failed ({type(err).__name__}), skipped", flush=True)
             found = {}
-            if failures > 40:     # the endpoint is refusing us, not a bad account
+            if failures > 40:     # probably rate limited, stop
                 print("too many consecutive failures, stopping early", flush=True)
                 break
         else:
             failures = 0
         for did in batch:
-            # an account the endpoint omits is recorded as null, never retried
+            # missing = deleted/suspended -> null
             cache[did] = found.get(did)
 
         if number % SAVE_EVERY == 0 or number == len(batches):

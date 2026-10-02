@@ -1,21 +1,14 @@
 /**
- * Four posts the five content models were actually asked about.
- *
- * Every probability here was measured, not chosen, and one is picked at random
- * each time the page opens. That is not decoration: a single fixed example
- * invites the reading that it was selected because it was flattering, and four
- * that behave differently make the point the one could only assert.
- *
- * The sentence under each is what that reading shows. It is written by hand
- * because a measurement cannot say what it means, but every number it quotes is
- * recomputed from the readings beside it, so the two cannot drift apart.
+ * 4 real posts with the actual outputs of the 5 content models, one picked at
+ * random on load. The note under each is hand-written but its numbers are
+ * computed from the values below.
  */
 export interface Reading { model: string; p: number; primary?: boolean }
 
 export interface Specimen {
   claim: string;
   readings: Reading[];
-  /** what this particular disagreement demonstrates */
+  /** what it shows */
   lesson: string;
 }
 

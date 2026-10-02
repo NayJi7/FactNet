@@ -1,13 +1,7 @@
-"""Annotate collected cascades, with inter-annotator agreement.
+"""Terminal tool to label collected cascades, with Cohen's kappa between annotators.
 
-The literature review commits this project to a written protocol and more than
-one annotator per item, so that agreement can be measured rather than assumed:
-single-annotator labels conflate genuine signal with individual judgement.
-
-Each annotator works on the same file and stores decisions under their own name,
-so the same record can carry several independent labels. Cohen's kappa is then
-computed over the items both annotators judged, and the consensus label (used
-for evaluation) is written only where they agree.
+Labels are stored per annotator in the same file. The consensus label (used for
+eval) is only set when everyone agrees.
 
     uv run python -m factnet.ingestion.annotate --annotator adam
     uv run python -m factnet.ingestion.annotate --agreement
@@ -45,7 +39,6 @@ def dump(records: list[dict], path: Path) -> None:
 
 
 def cohen_kappa(pairs: list[tuple[int, int]]) -> float:
-    """Agreement beyond chance over jointly annotated items."""
     if not pairs:
         return float("nan")
     n = len(pairs)
@@ -60,7 +53,7 @@ def cohen_kappa(pairs: list[tuple[int, int]]) -> float:
 
 
 def consensus(record: dict) -> int | None:
-    """Label kept for evaluation: only where every annotator agrees."""
+    """Label if all annotators agree, else None."""
     votes = {v for v in (record.get("annotations") or {}).values() if v is not None}
     return votes.pop() if len(votes) == 1 else None
 
@@ -72,8 +65,7 @@ def annotate(path: Path, annotator: str, limit: int | None = None,
     records = load(path)
     print(PROTOCOL)
 
-    # an annotation session is short, so spend it where it buys the most: posts
-    # that actually state something checkable, largest cascade first among them
+    # check-worthy posts first, then biggest cascades
     for record in records:
         record.setdefault("checkworthy", round(checkworthy(record.get("text", "")), 3))
     queue = list(enumerate(records))

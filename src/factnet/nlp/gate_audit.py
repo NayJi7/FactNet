@@ -1,14 +1,8 @@
-"""Two audits of the check-worthiness gate, on two populations.
+"""Audit of the check-worthiness gate.
 
-They answer different questions and must not be conflated. The annotated set
-scores the gate against a human judgement of what is a claim, which measures
-correctness. The source-labelled set measures reach: what share of a real
-stream this module can say anything about at all.
-
-Both were previously computed by hand. They are here because the rule set they
-score is itself under revision: an earlier version spelled its verbs as
-"confirmed?", which matches "confirme" plus an optional "d" and therefore never
-fired on "confirm" or "confirms", and both audits inherited that.
+correctness(): vs the annotator's skips (annotated set).
+reach(): share of the source-labelled stream that passes.
+Was done by hand before, moved here after the "confirmed?" regex bug.
 
     uv run python -m factnet.nlp.gate_audit
 """
@@ -34,12 +28,8 @@ def _read(path: Path) -> list[dict]:
 
 
 def correctness(floor: float = FLOOR) -> dict:
-    """The gate against the annotator's own skips.
-
-    A skip means the annotator judged the item not to be a checkable claim, so
-    a retained skip is noise let through and a rejected non-skip is a claim
-    lost. The second is the costly error and is reported as such.
-    """
+    """skip = annotator said "not a claim". kept skip = noise, rejected non-skip =
+    lost claim (the worse one)."""
     rows = [r for r in _read(ANNOTATED) if r.get("annotation_meta")]
     kept = [r for r in rows if score(r.get("text", "")) >= floor]
     rejected = [r for r in rows if score(r.get("text", "")) < floor]
@@ -55,7 +45,6 @@ def correctness(floor: float = FLOOR) -> dict:
 
 
 def reach(floor: float = FLOOR) -> dict:
-    """What share of a real collected stream states anything checkable."""
     rows = [r for r in _read(BY_SOURCE)
             if r.get("label") is not None and (r.get("text") or "").strip()]
     scores = [score(r["text"]) for r in rows]

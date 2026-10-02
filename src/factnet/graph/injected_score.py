@@ -1,14 +1,7 @@
-"""What the content model injected into the propagation graph is worth alone.
+"""How good is the injected score on its own?
 
-The integration ablation attaches a per-story credibility score to the cascade
-root. Both articles describe the gain that score produces, but neither reports
-what the model producing it scores on its own, and the two of them attribute it
-to the LIAR classifier, which is a different model on a different corpus.
-
-The injected score comes from a small MLP over the UPFD root embedding, which
-is the news article, cross-fitted over five folds on the training split so that
-no story is scored by a model that saw it. This reproduces that model and
-measures it on the held-out split, so the articles can name the right figure.
+It's NOT the LIAR model (the papers first said it was), it's a small MLP on the UPFD
+root embedding, 5-fold cross-fitted on train. Reproduced here and scored on test.
 
     uv run python -m factnet.graph.injected_score
 """
@@ -32,7 +25,7 @@ SEEDS = (0, 1, 2)
 
 
 class ContentMLP(torch.nn.Module):
-    """Reads the news root embedding only, with no structure at all."""
+    """root embedding only"""
 
     def __init__(self, in_dim: int, hidden: int = 128) -> None:
         super().__init__()

@@ -1,9 +1,6 @@
-"""Early-detection evaluation on partial propagation cascades.
+"""Early detection: Bi-GCN trained on full cascades, tested on the first 20..80%.
 
-How early can the main model flag a story? UPFD carries no timestamps, so
-breadth-first order from the news root is used as a proxy for arrival order
-(accounts closer to the source reshare earlier). Bi-GCN is trained on full
-cascades and evaluated on test cascades truncated to their first nodes.
+No timestamps in UPFD so we use BFS order from the root as arrival order.
 
     uv run python -m factnet.graph.early_detection
 """
@@ -29,7 +26,7 @@ FRACTIONS = (0.2, 0.4, 0.6, 0.8, 1.0)
 
 
 def _bfs_order(data: Data) -> list[int]:
-    """Breadth-first node order from the news root (node 0), ties by index."""
+    """BFS from node 0, ties by index"""
     adj: list[list[int]] = [[] for _ in range(data.num_nodes)]
     for s, t in data.edge_index.t().tolist():
         adj[s].append(t)
@@ -42,12 +39,12 @@ def _bfs_order(data: Data) -> list[int]:
             if nxt not in seen:
                 seen.add(nxt)
                 queue.append(nxt)
-    order += sorted(set(range(data.num_nodes)) - set(order))  # disconnected nodes
+    order += sorted(set(range(data.num_nodes)) - set(order))  # unreachable ones at the end
     return order
 
 
 def truncate(data: Data, fraction: float) -> Data:
-    """Keep the first ``fraction`` of nodes in BFS order (at least the root)."""
+    """first `fraction` of nodes in BFS order, root always kept"""
     if fraction >= 1.0:
         return data
     order = _bfs_order(data)

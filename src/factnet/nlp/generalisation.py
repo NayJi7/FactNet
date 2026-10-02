@@ -1,7 +1,4 @@
-"""Cross-domain generalisation test on LIAR (honest generalisation gap).
-
-Trains on statements outside a topic and reports macro-F1 in-domain vs on the
-held-out topic, exposing the drop when the subject shifts.
+"""LIAR held-out topic test: train without topic X, eval in-domain vs on X.
 
     uv run python -m factnet.nlp.generalisation
 """
@@ -29,11 +26,11 @@ def _fit(train):
 def cross_domain(topic: str = "health"):
     df = pd.concat([load_liar("train"), load_liar("test")], ignore_index=True)
     is_topic = df.subject.fillna("").str.contains(topic)
-    source = df[~is_topic]                       # everything outside the topic
+    source = df[~is_topic]
     out_of_topic = source.sample(frac=1.0, random_state=0)
     split = int(0.85 * len(out_of_topic))
     train, in_domain = out_of_topic.iloc[:split], out_of_topic.iloc[split:]
-    cross = df[is_topic]                          # the held-out topic (OOD)
+    cross = df[is_topic]                          # OOD
 
     clf = _fit(train)
     f1_in = f1_score(in_domain.y, clf.predict(in_domain.text), average="macro")

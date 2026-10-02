@@ -8,7 +8,6 @@ export interface Figure {
   caption: string;
 }
 
-/** Which half of the project a stage or a table comes from. */
 export type Module = "content" | "propagation" | "both";
 
 export interface Step {

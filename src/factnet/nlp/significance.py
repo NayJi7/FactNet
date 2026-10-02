@@ -1,20 +1,8 @@
-"""Is the gap between two of these models larger than the test split's noise?
+"""Paired bootstrap on the LIAR test split (1267 items): are the content models
+actually different? (0.647 vs 0.633 looks like a gap but probably isn't)
 
-Every content figure in this work is one number from one run on one split of
-1,267 items. Reported that way, a model at 0.647 looks like it refutes a claim
-made about a model at 0.633, and a reader has no way to tell whether the
-difference means anything.
-
-The split is what is shared, so the split is what gets resampled. Test items
-are drawn with replacement, both models are rescored on the same draw, and the
-difference between them is recorded. Pairing matters: the two models see
-identical resamples, so the variance from the sample itself cancels and what is
-left is the variance of the gap.
-
-This does not measure seed variance, which would need the models refitted, and
-the interval is therefore a floor on the uncertainty rather than all of it. It
-is enough for the question actually being asked, which is whether any of these
-models separates from the bag of words on this benchmark.
+Same resample for both models so the sample noise cancels out. Doesn't cover
+seed variance, so it's a lower bound on the uncertainty.
 
     uv run python -m factnet.nlp.significance
 """
@@ -45,7 +33,7 @@ BASELINE = "TF-IDF + logistic regression"
 
 
 def tfidf_predictions() -> tuple[list[int], list[int]]:
-    """Refit the bag of words, so it enters the comparison on the same split."""
+    """refit tfidf on the same split"""
     train, test = load_liar("train"), load_liar("test")
     clf = make_pipeline(
         TfidfVectorizer(ngram_range=(1, 2), min_df=2, max_features=50_000),
@@ -56,12 +44,7 @@ def tfidf_predictions() -> tuple[list[int], list[int]]:
 
 
 def frozen_predictions() -> tuple[list[int], list[int]]:
-    """The frozen encoder, recomputed because its run saved metrics only.
-
-    Leaving one row of a comparison without an interval, in a table whose point
-    is that the intervals overlap, invites the reading that the row was left out
-    because it did not.
-    """
+    """Recompute frozen distilbert preds (the original run only saved metrics)."""
     from factnet.nlp.baseline import embed
 
     train, test = load_liar("train"), load_liar("test")
@@ -92,7 +75,7 @@ def collect() -> dict[str, tuple[np.ndarray, np.ndarray]]:
 
 
 def paired_bootstrap(truth, a, b, rounds=ROUNDS, seed=0):
-    """Distribution of macro-F1(a) - macro-F1(b) over resamples of the split."""
+    """macro-F1(a) - macro-F1(b) over resamples"""
     rng = np.random.default_rng(seed)
     n = len(truth)
     gaps = np.empty(rounds)

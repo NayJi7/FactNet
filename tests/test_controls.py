@@ -1,9 +1,5 @@
-"""The controls added after the first submission, on the parts that can lie.
-
-Each of these modules exists to make a published claim falsifiable, so a bug in
-one of them would not fail loudly, it would quietly produce a number that looks
-like a result. The properties pinned here are the ones the claims rest on.
-"""
+"""Tests for the control experiments. A bug there wouldn't crash, it would just
+give a wrong number, so we pin the properties the claims rely on."""
 
 import numpy as np
 import torch
@@ -16,7 +12,6 @@ from factnet.nlp.significance import paired_bootstrap
 
 
 def _cascade() -> Data:
-    """A root with three children, one of which has a child of its own."""
     x = torch.tensor([[9.0, 9.0], [1.0, 2.0], [3.0, 4.0], [5.0, 6.0]])
     edge_index = torch.tensor([[0, 0, 0, 1], [1, 2, 3, 2]])
     return Data(x=x, edge_index=edge_index, y=torch.tensor([1]))

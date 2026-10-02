@@ -1,18 +1,8 @@
-"""The measurements, read from the files the experiments wrote.
+"""Results tab: tables built from the JSON files in data/results.
 
-An earlier version of this module transcribed the tables of the report by hand.
-Every rerun then had to be copied across, and when the reports were restructured
-the copies were not: the dashboard spent a month serving a macro-F1 of 0.873 for
-a cell that reproduces at 0.901, under a sentence the papers had retracted.
-
-Nothing is transcribed here. Each table is assembled from the JSON its
-experiment wrote into ``data/results``, so a rerun changes the dashboard without
-anyone editing this file, and a missing file removes its table rather than
-leaving a stale one in place. Only the readings are written by hand, because a
-sentence saying what a table means is not something a measurement can produce.
-
-Each table declares which module it belongs to, so a viewer can tell which of
-the two papers to check a number against.
+Used to be copied by hand from the report and went stale (we served 0.873 for
+a cell that is 0.901 now). Now a missing file just drops its table. Only the
+one-line readings under each table are hand-written.
 """
 
 from __future__ import annotations
@@ -34,7 +24,7 @@ def _load(name: str) -> dict | list | None:
 
 
 def _pm(cell: dict | None, digits: int = 3) -> str | None:
-    """A mean with its seed deviation, as the reports print it."""
+    """"mean ± std" like in the reports"""
     if not cell:
         return None
     if isinstance(cell, (int, float)):
@@ -52,12 +42,8 @@ def _round(value, digits: int = 3):
 
 
 def _signed(value: float, digits: int = 3) -> str:
-    """A difference, rounded half up so the page and the reports agree.
-
-    Python rounds a tie to the even digit, and the binary value of a figure
-    like 0.0365 sits a hair below the decimal one, so the default formatting
-    prints 0.036 where the reports print 0.037.
-    """
+    """Signed, rounded half up. f"{x:.3f}" gives 0.036 for 0.0365 (float repr),
+    the reports say 0.037."""
     from decimal import ROUND_HALF_UP, Decimal
 
     quantum = Decimal(1).scaleb(-digits)
@@ -65,9 +51,7 @@ def _signed(value: float, digits: int = 3) -> str:
     return f"{fixed:+.{digits}f}"
 
 
-# --------------------------------------------------------------------------
-# Propagation module
-# --------------------------------------------------------------------------
+# ---- propagation module ----
 
 def _graph() -> dict | None:
     politifact = _load("table1_3seeds")
@@ -264,9 +248,7 @@ def _confound() -> dict | None:
     }
 
 
-# --------------------------------------------------------------------------
-# Content module
-# --------------------------------------------------------------------------
+# ---- content module ----
 
 def _liar() -> dict | None:
     report = _load("liar_significance")
@@ -371,9 +353,7 @@ def _transfer() -> dict | None:
     }
 
 
-# --------------------------------------------------------------------------
-# Where the two meet
-# --------------------------------------------------------------------------
+# ---- integration ----
 
 INTEGRATION = {
     "key": "integration", "short": "Integration", "module": "both", "title": "Integration ablation",
@@ -400,7 +380,6 @@ def _integration() -> dict:
 
 
 def _root_identity() -> dict | None:
-    """What the benchmark actually puts at the root of a cascade."""
     report = _load("root_identity")
     if not report:
         return None
@@ -430,7 +409,7 @@ def _root_identity() -> dict | None:
 
 
 def _influence_weights() -> dict | None:
-    """Whether the composite influence score depends on the weights we chose."""
+    """Sensitivity of the influence ranking to the 0.5/0.3/0.2 weights."""
     report = _load("influence_weights")
     if not report:
         return None
@@ -456,7 +435,7 @@ def _influence_weights() -> dict | None:
 
 
 def _worst(report: dict, field: str):
-    """The least favourable row, so the prose cannot drift from the table."""
+    """Worst row, used in the reading text."""
     return min(row[field] for row in report["rows"])
 
 
@@ -483,16 +462,8 @@ MODULES = {
 
 
 def spine() -> dict[str, Any]:
-    """The whole argument on one macro-F1 axis.
-
-    Four big figures in a row is the shape every dashboard uses, and it hides
-    the only thing that matters here, which is what each figure has to be read
-    against. A detection score of 0.919 says nothing until the model that reads
-    no edge is drawn beside it at 0.940, and a content ceiling says nothing
-    until the same axis carries what a constant answer earns.
-
-    Every mark is recomputed from the file its experiment wrote.
-    """
+    """All the key scores on one macro-F1 axis, next to their baselines
+    (e.g. 0.919 for Bi-GCN only makes sense next to 0.940 with no edges)."""
     marks: list[dict[str, Any]] = []
 
     def add(label: str, value: float | None, module: str, note: str,
@@ -537,7 +508,7 @@ def spine() -> dict[str, Any]:
 
 
 def headlines() -> list[dict[str, str]]:
-    """Four numbers, each recomputed from the file its experiment wrote."""
+    """The 4 big numbers at the top of the results tab."""
     out = []
     gossipcop = _load("gossipcop_bert_3seeds")
     if gossipcop:
@@ -553,8 +524,7 @@ def headlines() -> list[dict[str, str]]:
                     "note": "the only separation that survives a paired bootstrap"})
     liar = _load("liar_significance")
     if liar:
-        # the weight-decay run is offered for comparison and is not one of the
-        # five configurations the report describes, so it does not set the ceiling
+        # skip the weight-decay run, it's not one of the 5 configs in the report
         reported = {k: v for k, v in liar.items() if "weight decay" not in k}
         best = max(cell["macro_f1"] for cell in reported.values())
         out.append({"value": f"{best:.2f}", "module": "content",

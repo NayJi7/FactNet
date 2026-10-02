@@ -22,12 +22,11 @@ const tip = {
   },
 };
 
-/** Weighted tokens, set inline. A sentence is read as a sentence. */
+/** tokens inline with their weight */
 function Tokens({ data }: { data: Figure["data"] }) {
   const tokens: [string, number][] = data.tokens ?? [];
   const signed = Boolean(data.signed);
   return (
-    // no ch cap: set two abreast, the column is already the measure
     <p className="font-mono text-[13px] leading-[2.1]">
       {tokens.map(([token, weight], i) => {
         const m = Math.min(1, Math.abs(weight));
@@ -90,7 +89,7 @@ function Series({ data }: { data: Figure["data"] }) {
   );
 }
 
-/** A small control, in the same language as the tabs: text, underlined when on. */
+/** small toggle, same style as the tabs */
 function Control({ on, onClick, children, title }: {
   on?: boolean; onClick: () => void; children: React.ReactNode; title?: string;
 }) {
@@ -150,10 +149,8 @@ function Cascade({ data }: { data: Figure["data"] }) {
       .map((l) => ({ ...l }));
 
     if (radial) {
-      // The rings are placed here rather than left to the layout engine: these
-      // graphs contain cycles and self-replies, so the library's radial mode
-      // gives up on them silently. Pinning also removes the shake, since
-      // nothing is simulated when the filter changes.
+      // rings are computed by hand, dagMode radial silently fails on cycles /
+      // self replies. also no more jitter since nothing is simulated
       const byDepth = new Map<number, any[]>();
       for (const n of nodes) {
         if (!byDepth.has(n.depth)) byDepth.set(n.depth, []);
@@ -185,12 +182,8 @@ function Cascade({ data }: { data: Figure["data"] }) {
     return { nodes, links: edges, radius };
   }, [data, limit, radial, width]);
 
-  // the handful of accounts worth printing a name for: the source, and the
-  // largest audiences on screen. Everything else stays a dot, or the picture
-  // becomes a wall of text.
-  // Nothing is written on the picture. A ring holds hundreds of nodes a few
-  // pixels apart, so any label lands on its neighbour; the handle is on hover
-  // and the largest audiences are listed under the figure, where they read.
+  // no labels on the graph (way too dense), handle on hover and the biggest
+  // accounts listed under the figure
   const biggest = useMemo(
     () => [...graph.nodes]
             .filter((n: any) => !n.root && n.followers > 0)
@@ -199,7 +192,7 @@ function Cascade({ data }: { data: Figure["data"] }) {
     [graph],
   );
 
-  // counts of what is actually on screen, not of the whole cascade
+  // counts for what's displayed, not the whole cascade
   const shownLevels = useMemo(() => {
     const counts = new Map<number, number>();
     for (const n of graph.nodes) counts.set(n.depth, (counts.get(n.depth) ?? 0) + 1);
@@ -210,9 +203,8 @@ function Cascade({ data }: { data: Figure["data"] }) {
     replies: graph.links.filter((l: any) => l.kind === "reply").length,
   }), [graph]);
 
-  // With pinned rings the extent is known exactly, so the zoom is computed
-  // rather than requested: zoomToFit runs before the coordinates are applied
-  // and, finding every node at the origin, magnifies the picture to nothing.
+  // compute the zoom ourselves, zoomToFit runs before the positions are set
+  // and zooms on a single point
   const refit = () => {
     const g = graphRef.current;
     if (!g) return;
@@ -261,9 +253,7 @@ function Cascade({ data }: { data: Figure["data"] }) {
         </div>
       </div>
 
-      {/* The layout is a disc, so a wide short box wastes its corners whatever
-          the zoom. Narrowing the canvas and standing the legend beside it uses
-          the row instead, and buys the disc more height at the same time. */}
+      {/* legend on the side, the graph is round so a wide canvas wastes space */}
       <div className="xl:grid xl:grid-cols-[minmax(0,1fr)_248px] xl:gap-7">
       <div ref={box} className="overflow-hidden border border-rule bg-panel"
            style={{ height: HEIGHT }}>
@@ -333,7 +323,7 @@ function Cascade({ data }: { data: Figure["data"] }) {
   );
 }
 
-/** Models on one axis. The spread is the finding, so the axis is shared. */
+/** all models on one shared axis */
 function Compare({ data }: { data: Figure["data"] }) {
   const rows = [...(data.rows ?? [])].sort((a, b) => b.p_reliable - a.p_reliable);
   return (
@@ -381,14 +371,8 @@ function Compare({ data }: { data: Figure["data"] }) {
 }
 
 /**
- * Why the models differ on this post, which is the question a viewer asks the
- * moment they see five answers and one input.
- *
- * The answer is never that one model is better: on the held-out benchmark none
- * of these separates from any other. It is that they weigh different objects,
- * so what each one actually weighed is shown, measured on this input rather
- * than described in general. A token in ink pushed that model towards
- * reliable, one in amber pushed it the other way.
+ * Why the models disagree on this post: top tokens per model.
+ * ink = pushed towards reliable, amber = towards misleading.
  */
 function Disagreement({ rows, why }: { rows: any[]; why: string[] }) {
   const withTokens = rows.filter((r) => r.tokens?.length);
@@ -419,8 +403,7 @@ function Disagreement({ rows, why }: { rows: any[]; why: string[] }) {
                   <span className="border-b-2 px-0.5"
                         style={{
                           borderColor: value >= 0 ? INK : SIGNAL,
-                          // the weight of the mark is the size of the effect, so
-                          // a glance ranks them without reading a single number
+                          // font weight = effect size
                           opacity: 0.45 + 0.55 * Math.min(1, Math.abs(value)),
                         }}>
                     {token}

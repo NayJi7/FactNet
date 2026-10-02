@@ -1,22 +1,9 @@
-"""What does a propagation detector score on once the root node is taken away?
+"""Root ablation. In UPFD node 0 is the news item, and with `bert` it holds the
+article embedding, so a "graph" model is partly reading text.
 
-UPFD builds every cascade as a tree whose node 0 is the news item itself and
-whose remaining nodes are the accounts that shared it. The node features are
-not neutral: under ``bert`` the root carries a 768-dimensional embedding of the
-article text and each account carries an embedding of its own posting history.
-A graph model over those features is therefore reading text, whatever the
-topology contributes on top.
-
-This module separates the two. Three conditions are trained under an identical
-protocol:
-
-``full``      the cascade as published,
-``masked``    identical topology, the root feature vector zeroed,
-``removed``   the root and its edges deleted entirely.
-
-``masked`` is the one that answers the question, because it holds the structure
-fixed and removes only the text the root carries. ``removed`` is reported
-beside it to show what the root's position in the tree is worth on its own.
+  full     as is
+  masked   same graph, root features = 0   <- the one that matters
+  removed  root and its edges deleted
 
     uv run python -m factnet.graph.root_ablation
 """
@@ -39,14 +26,12 @@ CONDITIONS = ("full", "masked", "removed")
 
 
 def _mask_root(g: Data) -> Data:
-    """Same graph, same edges, root feature vector set to zero."""
     x = g.x.clone()
     x[0] = 0.0
     return Data(x=x, edge_index=g.edge_index, y=g.y)
 
 
 def _remove_root(g: Data) -> Data:
-    """Drop node 0 and every edge touching it, then renumber."""
     keep = torch.arange(1, g.num_nodes)
     if keep.numel() == 0:
         return Data(x=torch.zeros(1, g.num_features), y=g.y,
@@ -61,13 +46,13 @@ TRANSFORMS = {"full": lambda g: g, "masked": _mask_root, "removed": _remove_root
 
 
 def _materialise(dataset, condition: str) -> list[Data]:
-    """PyG datasets are lazy, and the ablations need concrete graphs."""
+    """PyG datasets are lazy, we need real Data objects to modify"""
     fn = TRANSFORMS[condition]
     return [fn(g) for g in dataset]
 
 
 class _Wrapped(list):
-    """A list of graphs that answers the two attributes ``run`` asks for."""
+    """hack: list with the 2 attributes run() reads off a dataset"""
 
     def __init__(self, graphs, num_features, num_classes):
         super().__init__(graphs)

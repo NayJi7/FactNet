@@ -1,14 +1,6 @@
 import type { Trace } from "../lib/types";
 
-/**
- * The measurement rail.
- *
- * Every stage that produces a probability plots it against one shared axis, so
- * that disagreement between the content model, the structural model and their
- * integration is a shape rather than a paragraph. The 0.5 boundary is drawn
- * firmly and the unreliable half is washed, because the distance from that line
- * is the only thing the verdict actually reports.
- */
+/** Every p(reliable) from the steps on one vertical axis, 0.5 line in the middle. */
 
 interface Reading {
   key: string;
@@ -51,19 +43,17 @@ export default function MeasureRail({ trace }: { trace: Trace }) {
   const points = readings(trace);
   if (!points.length) return null;
 
-  // Short enough that the panel above it and the rail together still fit a
-  // laptop viewport, since the two now share one sticky column.
+  // must fit under the input panel on a laptop screen
   const H = 250;
   const y = (v: number) => (1 - v) * H;
 
   return (
     <div className="mt-8 hidden border-t border-rule-firm pt-5 lg:block">
       <p className="eyebrow mb-3">Readings</p>
-      {/* a fixed rendered width: left to fill the column the viewBox would
-          scale the whole drawing up, type included */}
+      {/* fixed width, otherwise the viewBox scales the text up too */}
       <svg viewBox={`0 0 150 ${H + 26}`} className="w-[196px] overflow-visible"
            role="img" aria-label="Each stage plotted on a shared probability axis">
-        {/* the unreliable half, washed rather than outlined */}
+        {/* misleading half */}
         <rect x="18" y={y(0.5)} width="10" height={H - y(0.5)} fill="var(--color-signal-dim)" />
         <line x1="23" y1="0" x2="23" y2={H} stroke="var(--color-ink-faint)" strokeWidth="1.25" />
 
@@ -78,16 +68,14 @@ export default function MeasureRail({ trace }: { trace: Trace }) {
           </g>
         ))}
 
-        {/* the path between stages: the zigzag is the disagreement */}
+        {/* line between steps */}
         {points.length > 1 && (
           <polyline
             points={points.map((p, i) => `${23 + (i + 1) * 0},${y(p.value)}`).join(" ")}
             fill="none" stroke="var(--color-rule-firm)" strokeWidth="0.75" />
         )}
 
-        {/* Stages often agree exactly, and then their labels land on the same
-            line and overprint. The marks stay on the axis where they belong;
-            only the type is pushed clear of what is already written. */}
+        {/* push labels apart when values are equal (they overlapped) */}
         {(() => {
           const written: number[] = [];
           return points.map((p, i) => {
@@ -99,7 +87,7 @@ export default function MeasureRail({ trace }: { trace: Trace }) {
                 <line x1="18" y1={y(p.value)} x2="28" y2={y(p.value)}
                       stroke={STROKE[p.kind]} strokeWidth={p.kind === "final" ? 3 : 2}
                       strokeDasharray={p.counted ? undefined : "2 2"} />
-                {/* a reading the verdict did not use is drawn hollow: present, not counted */}
+                {/* hollow = not counted */}
                 <circle cx="23" cy={y(p.value)} r={p.kind === "final" ? 4 : 3}
                         fill={p.counted ? STROKE[p.kind] : "var(--color-panel)"}
                         stroke={STROKE[p.kind]} strokeWidth={p.counted ? 0 : 1.2} />

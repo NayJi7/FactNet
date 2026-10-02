@@ -1,23 +1,9 @@
-"""What the collected labels are actually predictable from.
+"""Is the 0.773 on Bluesky really about cascade shape? Two suspects:
 
-A detector trained on the collected cascades reaches macro-F1 0.773, which the
-project reads as evidence that cascade shape carries information about the
-credibility of the linked source. This module tests that reading against the
-two ways it could be wrong, and both turn out to matter.
-
-The first is size. The outlets on the reliable side are large established news
-organisations and those on the misleading side are marginal sites, so their
-audiences differ by an order of magnitude before anything propagates. If the
-label can be read off the number of accounts alone, the detector may be
-measuring the sample's construction rather than the phenomenon. A one-threshold
-rule is therefore fitted on the training half and reported beside the model.
-
-The second is memorisation. Accounts recur across cascades, so a split made
-cascade by cascade puts the same account on both sides and lets a model learn
-who rather than how. Splitting by source domain removes that, and asks the
-harder question at the same time: does this generalise to outlets never seen?
-
-Four conditions are crossed, so that each confound can be attributed:
+- size: reliable outlets are big, misleading ones are tiny, so maybe the number
+  of accounts is enough -> one-threshold rule as a baseline
+- memorisation: same accounts in train and test -> split by domain instead
+4 conditions: (cascade or domain split) x (all sizes or size matched).
 
     uv run python -u -m factnet.graph.confound
 """
@@ -51,12 +37,8 @@ def load() -> list[dict]:
 
 
 def size_matched(rows: list[dict], tolerance: float = 0.25) -> list[dict]:
-    """Pair each misleading cascade with a reliable one of comparable size.
-
-    What remains is a sample in which the number of accounts carries no
-    information about the label, so any score above chance has to come from
-    something else.
-    """
+    """Match each misleading cascade with a reliable one of similar size, so size
+    can't predict the label anymore."""
     smaller = sorted((len(r["nodes"]), i) for i, r in enumerate(rows) if r["label"] == 0)
     larger = sorted((len(r["nodes"]), i) for i, r in enumerate(rows) if r["label"] == 1)
     taken: set[int] = set()
@@ -92,7 +74,7 @@ def split_by_cascade(rows: list[dict], seed: int, fraction: float = 0.6):
 
 
 def split_by_domain(rows: list[dict], seed: int, fraction: float = 0.6):
-    """Hold out whole outlets, so no domain is on both sides of the split."""
+    """no domain in both train and test"""
     generator = random.Random(seed)
     train: list[dict] = []
     test: list[dict] = []
@@ -109,7 +91,7 @@ def split_by_domain(rows: list[dict], seed: int, fraction: float = 0.6):
 
 
 def size_rule(train: list[dict], test: list[dict]) -> float:
-    """The whole model: one threshold on the number of accounts."""
+    """one threshold on n_accounts"""
     truth = [r["label"] for r in train]
     sizes = [len(r["nodes"]) for r in train]
     best = (-1.0, 1)

@@ -1,21 +1,11 @@
-"""The paired test applied to every row it should have been applied to.
+"""Same paired test as early_gap_test, on all 4 rows of table 2 (graph paper).
 
-Table 2 of the graph article asserts three separations between the detector and
-an edgeless baseline, and the article's abstract opens on one of them. All three
-were read off by putting a mean beside an interval, which is the procedure the
-early-detection section retracts two pages later. This runs the retraction's own
-test on all four rows.
+Those rows were compared as mean vs interval, which we said was wrong in the
+early detection section. 3 seeds for the graph model, baseline fitted once,
+paired bootstrap on the difference, per seed.
 
-For each configuration the graph model is trained on three seeds, the edgeless
-baseline is fitted once, and both are scored on the same bootstrap resample of
-the test split. The interval is taken on the difference, and the whole procedure
-is repeated per seed so that seed variance and split variance enter together.
-
-The second question is the same mechanism at the other end of the sweep. Masking
-the article embedding out of the root is worth +0.022 to the graph model at
-20 per cent of a GossipCop cascade. Whether it is worth anything at 100 per cent
-decides the article's most quotable line, since the edgeless baseline leads there
-by 0.019.
+Also: root masking gives +0.022 at 20% on GossipCop, does it still help at 100%
+(where the edgeless baseline is ahead by 0.019)?
 
     uv run python -m factnet.graph.table2_gap_test
 """
@@ -45,7 +35,7 @@ BASELINES = ("root", "users", "mean-pool")
 
 
 def best_baseline(train, test, truth) -> tuple[str, np.ndarray, float]:
-    """The strongest edgeless model on this row, which is what to beat."""
+    """best edgeless model for this row"""
     best = (None, None, -1.0)
     for kind in BASELINES:
         Xtr, ytr = design(train, kind)
@@ -83,7 +73,7 @@ def row(name: str, feature: str) -> dict:
 
 
 def masked_sweep() -> dict:
-    """The root-masking gain at every truncation level, not just at 20 per cent."""
+    """root masking gain at every truncation level"""
     train = UPFD(ROOT, "gossipcop", "bert", split="train")
     test = UPFD(ROOT, "gossipcop", "bert", split="test")
     nf, nc = train.num_features, train.num_classes

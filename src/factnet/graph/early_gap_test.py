@@ -1,28 +1,9 @@
-"""Does the graph model actually separate from an edgeless one at 20 per cent?
+"""GossipCop bert at 20%: graph 0.903 vs edgeless logreg 0.885. Real gap or noise?
 
-After the mean-pooling control, one cell carries every structural claim left in
-this article: GossipCop ``bert`` at 20 per cent of the cascade, where the graph
-model reads 0.903 and a logistic regression with no edges reads 0.885. That was
-reported as a separation by putting a seed deviation of 0.009 next to a split
-interval of 0.010 and observing that the numbers did not overlap. They very
-nearly do, and in any case the two quantities measure different things: one is
-variation across seeds on a fixed split, the other variation across splits at a
-fixed fit. Setting them side by side is not a test.
-
-The test is the one the content side of this project already uses. Both models
-are scored on the same bootstrap resample of the test split, the difference is
-recorded, and the interval is taken on that difference. Seed variance is folded
-in by repeating the whole procedure for each of the graph model's seeds and
-pooling. If the interval excludes zero the claim stands. If it does not, the
-graph model is nowhere distinguishable from a model that cannot see an edge, and
-that is the sentence this article has to carry.
-
-The second question is why a gap would exist at 20 per cent and close later.
-Truncation always keeps the root, and under ``bert`` the root holds the article
-embedding while the edgeless baseline averages account features only. At 20 per
-cent that average is at its noisiest and the root is intact, which is the shape
-of an advantage that fades as the mean converges. Masking the root at the same
-truncation level separates the two explanations.
+Before we just compared seed std (0.009) with the split CI (0.010), which isn't
+a test. Here: paired bootstrap on the difference, repeated for each seed and
+pooled. Also redone with the root masked, since at 20% the root (article
+embedding) could explain the gap.
 
     uv run python -m factnet.graph.early_gap_test
 """
@@ -71,7 +52,7 @@ def predict(model, graphs) -> np.ndarray:
 
 
 def paired_gap(truth, a, b, rounds=ROUNDS, seed=0) -> np.ndarray:
-    """macro-F1(a) - macro-F1(b) over resamples both models are scored on."""
+    """macro-F1(a) - macro-F1(b), same resamples"""
     rng = np.random.default_rng(seed)
     n = len(truth)
     gaps = np.empty(rounds)

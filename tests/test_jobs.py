@@ -1,10 +1,4 @@
-"""A reading must outlive the connection that asked for it.
-
-The defect these guard against: reloading the page during a run threw the work
-away, and the interface came back with no idea anything had been running. The
-person then clicked again and nothing happened, because the view that had to
-re-fetch was keyed on a value that had not changed.
-"""
+"""Jobs survive a page reload (used to lose the run, and clicking again did nothing)."""
 
 from __future__ import annotations
 
@@ -19,7 +13,6 @@ from factnet.serve.api import app
 
 @pytest.fixture(autouse=True)
 def _fresh_registry():
-    """Each test gets its own registry, so ordering cannot matter."""
     previous = jobs.REGISTRY
     jobs.REGISTRY = jobs.Registry()
     yield

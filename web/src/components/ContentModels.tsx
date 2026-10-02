@@ -2,16 +2,8 @@ import ModuleTag from "./ModuleTag";
 import type { ModelCard } from "../lib/types";
 
 /**
- * The five readers, what separates them, and why one of them is the reference.
- *
- * Five names and five probabilities appear on every reading, and until now
- * nothing said what any of them was. The question a viewer asks next is which
- * one to believe, and the honest answer is the finding of the content paper:
- * none of them separates from the simplest, so the reference is a matter of
- * protocol rather than of merit.
- *
- * The scores come from the engine, not from here, so they cannot drift from
- * what the selector offers.
+ * The 5 content models. None is significantly better than tf-idf, so the
+ * default one is a protocol choice. Scores come from /api/models.
  */
 const FAMILY: Record<string, { kind: string; what: string }> = {
   tfidf: {
@@ -77,7 +69,7 @@ export default function ContentModels({ models }: { models: ModelCard[] }) {
                 {family?.what}
               </p>
               <p className="tnum font-mono text-[13px] sm:text-right">
-                {model.macro_f1?.toFixed(3) ?? "—"}
+                {model.macro_f1?.toFixed(3) ?? "-"}
                 <span className="ml-1 text-[10.5px] text-ink-faint">F1</span>
               </p>
             </div>

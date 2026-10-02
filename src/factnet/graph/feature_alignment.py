@@ -1,21 +1,9 @@
-"""Were the two platforms ever describing accounts in the same units?
+"""Are the UPFD and Bluesky features even on the same scale? (no)
 
-The transfer experiment trains on UPFD's ten account counters and tests on the
-same ten counters recomputed from Bluesky. That is only a domain-gap
-measurement if the two sets of ten numbers mean the same thing. They do not.
-
-Three of the ten counters have no equivalent on the target platform and are
-written as zero by the collector. Of the seven that remain, several sit two to
-four orders of magnitude away from their benchmark counterparts, because the
-collector's ``log1p(x)/15`` compression was written to mirror the benchmark's
-normalisation without the benchmark's normalisation ever having been checked.
-
-A model handed inputs that far outside its training marginals will collapse to
-one class whatever the domain gap is, so the collapse on its own establishes
-nothing. This module separates the two causes. It reports which dimensions are
-structurally unavailable, how far the survivors are from the benchmark, and
-what the transfer scores once the survivors are quantile-aligned so that only
-the genuine difference between the platforms is left to measure.
+3 of the 10 are always 0 on bluesky, and some others are 2-4 orders of magnitude
+off because our log1p(x)/15 was never checked against UPFD's normalisation.
+So the transfer collapse could just be that. Here: list the dead dims, measure
+the gap per feature, and redo the transfer after quantile alignment.
 
     uv run python -m factnet.graph.feature_alignment
 """
@@ -45,12 +33,11 @@ def stack(graphs) -> np.ndarray:
 
 
 def dead_dimensions(matrix: np.ndarray) -> list[int]:
-    """Counters the collector never populates, so they carry nothing."""
+    """always-0 columns"""
     return [i for i in range(matrix.shape[1]) if float(np.ptp(matrix[:, i])) == 0.0]
 
 
 def marginal_gap(source: np.ndarray, target: np.ndarray) -> list[dict]:
-    """Per-counter distance between the two platforms, on the median."""
     rows = []
     for i in range(source.shape[1]):
         s, t = float(np.median(source[:, i])), float(np.median(target[:, i]))
@@ -61,12 +48,8 @@ def marginal_gap(source: np.ndarray, target: np.ndarray) -> list[dict]:
 
 
 def quantile_align(target: np.ndarray, source: np.ndarray) -> np.ndarray:
-    """Map each target counter onto the benchmark's marginal for that counter.
-
-    Rank-preserving by construction, so the ordering of accounts within a
-    counter is untouched and only the scale is moved. Dimensions that are
-    constant on either side are left alone, there being no ranks to map.
-    """
+    """Quantile-map each bluesky column onto the UPFD distribution (keeps ranks).
+    Constant columns are skipped."""
     out = target.copy()
     for i in range(target.shape[1]):
         if float(np.ptp(target[:, i])) == 0.0 or float(np.ptp(source[:, i])) == 0.0:
@@ -78,7 +61,6 @@ def quantile_align(target: np.ndarray, source: np.ndarray) -> np.ndarray:
 
 
 def realign(graphs: list[Data], source: np.ndarray) -> list[Data]:
-    """Re-emit the collected cascades with counters on the benchmark's scale."""
     flat = quantile_align(stack(graphs), source)
     out, cursor = [], 0
     for g in graphs:

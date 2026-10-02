@@ -1,6 +1,6 @@
 import type { ModelCard, Sample, SampleDetail, Step, Trace } from "./types";
 
-// the footer counter listens for this to refresh what is left today
+// Usage.tsx listens to this to refresh the counter
 const spent = () => window.dispatchEvent(new Event("factnet:usage"));
 
 async function call<T>(path: string, body?: unknown): Promise<T> {
@@ -10,8 +10,7 @@ async function call<T>(path: string, body?: unknown): Promise<T> {
     body: body === undefined ? undefined : JSON.stringify(body),
   });
   if (!response.ok) {
-    // the engine sends a sentence a person can act on; keep it rather than
-    // replacing it with a status code
+    // keep the server's message, it's readable
     const detail = await response.json().catch(() => null);
     throw new Error(detail?.detail ?? `request failed (${response.status})`);
   }
@@ -26,7 +25,7 @@ export const getSamples = () => call<{ samples: Sample[] }>("/samples");
 export const getSampleDetail = (id: number) =>
   call<SampleDetail>(`/samples/${id}`);
 
-/** The shortest collected cascade, stripped to the fields a reader supplies. */
+/** smallest sample, input fields only */
 export const getExampleCascade = () =>
   call<{ cascade: Record<string, unknown> }>("/samples/example");
 
@@ -58,15 +57,11 @@ export interface JobInfo {
   elapsed: number;
 }
 
-/** What the engine is reading right now, if anything. */
 export const getCurrentJob = () => call<{ job: JobInfo | null }>("/jobs/current");
 
 /**
- * Consume one reading, stage by stage, off an open response.
- *
- * Frames are `event: name` then `data: json`, separated by a blank line, and a
- * chunk can split one in half: whatever follows the last blank line is held
- * back until the rest of it arrives.
+ * Read the SSE stream by hand. A chunk can cut a frame in half, so keep
+ * whatever is after the last blank line for the next chunk.
  */
 async function consume(
   response: Response,
@@ -107,13 +102,7 @@ async function consume(
   return { ...summary, steps } as Trace;
 }
 
-/**
- * Ask for a reading and follow it.
- *
- * EventSource cannot POST, so the stream is read off the fetch body directly.
- * The reading is a job on the server: this connection is a viewer of it, and
- * dropping the connection does not stop the work.
- */
+/** POST + stream (EventSource can't POST so we read the fetch body). */
 export async function streamVerdict(
   payload: Record<string, unknown>,
   onStep: (step: Step) => void,
@@ -129,7 +118,7 @@ export async function streamVerdict(
   ).finally(spent);
 }
 
-/** Rejoin a reading already under way, replaying the stages it has produced. */
+/** rejoin a running job */
 export async function followJob(
   id: string,
   onStep: (step: Step) => void,

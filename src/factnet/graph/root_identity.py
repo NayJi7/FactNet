@@ -1,16 +1,8 @@
-"""Whose account does the root of a UPFD cascade describe?
+"""With `profile`, what are the 10 numbers on the root (it's a news item, not an account)?
 
-Under the ``profile`` feature set every node carries ten account counters, and
-the root of a cascade is the news item rather than an account. A column
-reporting that the root alone separates the classes therefore has to say what
-those ten numbers are counting.
-
-They are not a constant, and they are not synthetic: almost every root vector is
-byte-identical to an account vector appearing elsewhere in the corpus, which
-makes the root the account that published the story. That is not label leakage,
-but it is source identity, and a model reading it is learning which publishers
-sit on which side. It is the benchmark's version of the outlet-level confound
-this project reports against its own collected sample.
+Turns out almost every root vector is identical to some account's vector, i.e.
+it's the publisher's account. Not leakage, but the model can learn which
+publishers are on which side (same outlet confound as on our Bluesky data).
 
     uv run python -m factnet.graph.root_identity
 """

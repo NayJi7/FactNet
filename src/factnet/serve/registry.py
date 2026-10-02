@@ -1,12 +1,6 @@
-"""What models exist, what they are worth, and how to load them.
+"""Model list for the selector, with the macro-F1 each one got, + lazy loading.
 
-The dashboard lets a viewer switch between every model the article reports, and
-that only means something if each verdict is shown next to the score the model
-actually earned on a held-out benchmark. A confident-looking probability from
-the weakest model is otherwise indistinguishable from a good one.
-
-Loading is lazy and cached: a transformer costs half a gigabyte, and a
-demonstration should not pay for the four that were not asked for.
+Loading is lazy and cached (~500MB per transformer).
 """
 
 from __future__ import annotations
@@ -21,22 +15,21 @@ MODELS = Path(__file__).resolve().parents[3] / "models"
 
 @dataclass(frozen=True)
 class ModelCard:
-    """A model and the claim that can honestly be made about it."""
 
     key: str
     name: str
     kind: Literal["content", "graph"]
-    macro_f1: float | None            # on its own benchmark, from the article
-    trained_on: str                   # the surface it actually saw
+    macro_f1: float | None            # from the reports
+    trained_on: str
     note: str = ""
-    path: str | None = None           # relative to models/, when persisted
-    primary: bool = False             # the verdict of record
+    path: str | None = None           # under models/
+    primary: bool = False             # default model
     extra: dict[str, Any] = field(default_factory=dict)
 
     @property
     def available(self) -> bool:
         if self.path is None:
-            return True               # trained on the fly, in seconds
+            return True               # cheap, trained on the fly
         target = MODELS / self.path
         return target.exists() and any(target.iterdir()) if target.is_dir() else target.exists()
 
@@ -131,7 +124,6 @@ def primary(kind: str) -> ModelCard:
 
 
 def catalogue(kind: str | None = None, only_available: bool = False) -> list[dict[str, Any]]:
-    """The model list the interface renders in its selector."""
     cards = [c for c in ALL if kind is None or c.kind == kind]
     if only_available:
         cards = [c for c in cards if c.available]
@@ -142,11 +134,7 @@ def catalogue(kind: str | None = None, only_available: bool = False) -> list[dic
 
 @lru_cache(maxsize=8)
 def load_transformer(path: str):
-    """A fine-tuned sequence classifier, with attention left reachable.
-
-    The default attention path returns ``None`` for the weights, which would
-    silently empty the explanation, so the eager implementation is requested.
-    """
+    """Needs attn_implementation="eager", sdpa returns None for attentions."""
     from transformers import AutoModelForSequenceClassification, AutoTokenizer
 
     full = str(MODELS / path)

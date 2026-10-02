@@ -1,13 +1,7 @@
-"""Rewrite the node features of collected cascades from the fetched profiles.
+"""Second half of the fix: rewrite node features from the profile cache.
 
-The cascades themselves are sound: the topology was read from the right
-endpoints and does not need collecting again. Only the account features were
-wrong, because they were built from views that carry no counters, so this
-module replaces them in place from the profile cache and leaves everything else
-untouched.
-
-A record of what changed is printed rather than assumed, since the point of the
-exercise is to know how much of the earlier measurement rested on zeros.
+Topology was fine, only the features were wrong. Prints per-slot coverage before
+and after so we can see how much was zeros.
 
     uv run python -m factnet.ingestion.rebuild_features
 """
@@ -29,7 +23,6 @@ SLOT_NAMES = ("verified", "geo", "followers", "follows", "listed",
 
 
 def rebuild(cascades: list[dict], profiles: dict[str, dict]) -> tuple[int, int]:
-    """Replace every node's feature vector where a detailed profile exists."""
     filled = total = 0
     for cascade in cascades:
         for node in cascade.get("nodes", []):
@@ -42,7 +35,7 @@ def rebuild(cascades: list[dict], profiles: dict[str, dict]) -> tuple[int, int]:
 
 
 def coverage(cascades: list[dict]) -> list[int]:
-    """How many nodes carry a non-zero value in each of the ten slots."""
+    """non-zero count per slot"""
     counts = [0] * 10
     for cascade in cascades:
         for node in cascade.get("nodes", []):

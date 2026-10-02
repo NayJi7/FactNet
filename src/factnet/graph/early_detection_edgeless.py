@@ -1,22 +1,8 @@
-"""Is early detection a property of the cascade, or of averaging a sample?
+"""Control: the model mean-pools, and a mean over 20% of the nodes is already a
+decent estimate of the full mean. So maybe the flat curve is just that.
 
-The early-detection result is that a model trained on complete cascades keeps
-its score when shown only the first fraction of one, and the article reads that
-as the shape of a cascade being legible from its opening.
-
-There is a duller reading, and masking the root did not test it. The detector
-mean-pools its node representations. The mean of a feature over the first 20 per
-cent of the nodes is an estimator of the mean over all of them, and it converges
-quickly. A model whose decision is a function of that mean would therefore hold
-its score under truncation for a reason that has nothing to do with propagation:
-a subsample estimates a mean.
-
-The test removes the graph entirely. Logistic regression is fitted on the mean
-of the account features of complete training cascades, exactly as in
-``trivial_baselines``, and evaluated on test cascades truncated to the same
-breadth-first fractions the graph model is evaluated on. No edge is read at any
-point, so nothing here can be a property of the structure. If this curve is flat
-too, flatness is what averaging does and not what a cascade is.
+Logreg on the mean account features (like trivial_baselines), no edges at all,
+same BFS truncations. If it's flat too, flat = averaging, not structure.
 
     uv run python -m factnet.graph.early_detection_edgeless
 """
@@ -39,7 +25,7 @@ ROUNDS = 2000
 
 
 def accounts_mean(graph) -> np.ndarray:
-    """Mean of the account features, the root excluded, as the baseline uses."""
+    """mean features without the root"""
     x = graph.x.numpy()
     return x[1:].mean(0) if len(x) > 1 else np.zeros_like(x[0])
 
@@ -68,7 +54,7 @@ def sweep(name: str, feature: str) -> dict:
     train = UPFD(ROOT, name, feature, split="train")
     test = UPFD(ROOT, name, feature, split="test")
 
-    Xtr, ytr = design(train, 1.0)                      # fitted on complete cascades
+    Xtr, ytr = design(train, 1.0)                      # train on full cascades
     model = LogisticRegression(max_iter=5000, class_weight="balanced").fit(Xtr, ytr)
 
     out = {}

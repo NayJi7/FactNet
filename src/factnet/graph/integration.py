@@ -1,11 +1,8 @@
-"""Integration interface: inject the per-story credibility score (from the NLP
-module) into the propagation graph's node features.
+"""Integration point: the content score goes in an extra column on the root node
+(0 elsewhere).
 
-The score is attached to the news root (node 0) as an extra feature column;
-other nodes carry 0. The dry run trains Bi-GCN on three variants -- no score,
-random scores, informative scores (label with noise, an oracle-like upper
-bound) -- checking the interface end-to-end: random scores must not help,
-informative ones must.
+Dry run: Bi-GCN with no score / random score / noisy label as score. Random
+shouldn't help, the noisy oracle should.
 
     uv run python -m factnet.graph.integration
 """
@@ -27,12 +24,7 @@ ROOT = str(Path(__file__).resolve().parents[3] / "data" / "raw" / "upfd")
 
 
 def attach_scores(dataset, scores) -> list[Data]:
-    """Append one feature column holding the story score on the root node.
-
-    The two sequences are zipped strictly: a shorter score list would otherwise
-    truncate the dataset without a word, and the ablation would silently be
-    measured on a subset of the split it claims to cover.
-    """
+    """+1 column, score on the root. strict zip, a short list must not silently drop graphs."""
     scores = list(scores)
     if len(scores) != len(dataset):
         raise ValueError(f"{len(dataset)} graphs but {len(scores)} scores")
@@ -46,14 +38,14 @@ def attach_scores(dataset, scores) -> list[Data]:
 
 
 def _scores(kind: str, dataset, seed: int = 0) -> torch.Tensor:
-    """Synthetic per-story scores for the dry run (1 = looks reliable)."""
+    """fake scores for the dry run"""
     gen = torch.Generator().manual_seed(seed)
     y = torch.tensor([int(d.y) for d in dataset], dtype=torch.float)
     if kind == "none":
         return torch.zeros(len(y))
     if kind == "random":
         return torch.rand(len(y), generator=gen)
-    if kind == "informative":  # oracle with noise: what a good NLP scorer gives
+    if kind == "informative":  # label + noise
         noisy = 0.1 + 0.8 * y + 0.15 * torch.randn(len(y), generator=gen)
         return noisy.clamp(0.0, 1.0)
     raise ValueError(kind)

@@ -6,17 +6,9 @@ import { useAsync } from "../lib/useAsync";
 import type { Module } from "../lib/types";
 
 /**
- * What the two papers measured.
- *
- * Fourteen tables of the same shape is six thousand pixels the eye has no
- * purchase on, which is what this page used to be. Three things give it back:
- * the argument is stated once on a shared axis before any table, every figure
- * carries a bar so a column can be ranked without reading it, and an index
- * follows the scroll so the reader always knows where they are in the argument.
- *
- * Grouped by module rather than by chronology. The propagation block opens on
- * the edgeless baselines, because that is the table the rest of it has to be
- * read against.
+ * Results tab. Summary axis first, then the tables grouped by module, each cell
+ * with a small bar, and a side index that follows the scroll (it was 14 tables
+ * in a row before, unreadable).
  */
 interface Table {
   key: string;
@@ -32,7 +24,7 @@ interface Table {
 
 const ORDER: Module[] = ["propagation", "content", "both"];
 
-/** The leading number of a cell, when it has one. */
+/** first number in a cell, if any */
 function magnitude(cell: unknown): number | null {
   if (typeof cell === "number") return cell;
   if (typeof cell !== "string") return null;
@@ -40,13 +32,7 @@ function magnitude(cell: unknown): number | null {
   return found ? Number(found[0]) : null;
 }
 
-/**
- * How each numeric column should be drawn.
- *
- * A table of macro-F1 is put on the same 0 to 1 axis the rest of the page uses,
- * so a bar means the same thing in every table. Anything else is scaled inside
- * its own column, where only the ordering is meaningful.
- */
+/** bar scale per column: macro-F1 on a fixed 0-1 axis, the rest relative to the column */
 function scales(table: Table) {
   const shared = /macro-f1/i.test(table.unit);
   return table.columns.map((_, column) => {
@@ -89,10 +75,7 @@ function TableView({ table }: { table: Table }) {
                     || /^[+-]?\d*\.?\d+|^\[/.test(String(cell));
                   return (
                     <td key={c} className="relative whitespace-nowrap py-2 pr-5">
-                      {/* a rule under the figure rather than a block behind it:
-                          a block reads as a highlight, and on a shared 0 to 1
-                          axis these differences are genuinely small, which is
-                          the finding and must not be exaggerated into contrast */}
+                      {/* thin line, not a filled block (differences are small, don't exaggerate) */}
                       {value !== null && scale && (
                         <span aria-hidden
                               className="absolute bottom-[5px] left-0 h-[2px] bg-rule-firm"
@@ -128,7 +111,7 @@ export default function Results() {
     }), []);
   const data = loaded.data;
 
-  // the index follows the reader rather than the reader hunting the index
+  // highlight the current section in the index
   useEffect(() => {
     if (!data) return;
     const spotter = new IntersectionObserver(

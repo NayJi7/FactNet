@@ -1,32 +1,11 @@
-"""The content models carried onto the collected Bluesky posts.
+"""LIAR content models on our Bluesky posts.
 
-The network sub-module measured what happens when its detector leaves the
-benchmark it was trained on. This is the same question asked of the content
-side, and it needs its own preamble because the two transfers are not
-comparable in the way they look.
-
-A LIAR label is a fact-checker's verdict on the claim a sentence makes. A label
-here is the published factual rating of the outlet the post links to. Carrying
-a LIAR-trained model onto these posts therefore does not ask "is the model
-still accurate"; it asks a model trained to judge claims to predict something
-about a domain name. A collapse is the expected outcome, and reporting the
-figure alone would say nothing. What is worth measuring is the shape of the
-failure, and whether anything about these texts predicts the label at all.
-
-Four questions, in the order that makes them answerable:
-
-  1. How many of these posts even state a checkable claim? A model asked to
-     judge the veracity of a headline fragment is being asked an unanswerable
-     question, and the check-worthiness stage can say how often that happens.
-  2. What do the five LIAR-trained models do here, and do their predictions
-     pile onto one class the way the graph detector's did?
-  3. Is there a signal at all? A model trained and tested on these texts
-     answers that, provided the split is made by source domain: split by post,
-     and it can memorise which outlets are which.
-  4. Is that signal the text, or the link? These posts frequently carry the URL
-     they point to, so a classifier can reach a high score by reading "rt.com".
-     This is the content-side counterpart of the cascade-size confound, and it
-     is checked the same way: by removing the giveaway and measuring again.
+Not really the same task: LIAR labels the claim, here the label is the outlet's
+rating. So we expect it to fail, the point is how. Steps:
+  1. how many posts are even claims (check-worthiness)
+  2. LIAR models as-is, do they all predict one class?
+  3. train/test on bluesky, split by domain (by post = memorising outlets)
+  4. same with links stripped, posts often contain the url ("rt.com"...)
 
     uv run python -u -m factnet.nlp.ood_eval
 """
@@ -51,12 +30,10 @@ RESULTS = ROOT / "data" / "results"
 COLLECTED = ROOT / "data" / "raw" / "bluesky" / "cascades-by-source.jsonl"
 SEEDS = (0, 1, 2)
 
-# the label is read off the linked outlet, so any string that names that outlet
-# is a leak rather than a feature. Bluesky truncates a link into the post text,
-# which is why this has to be stripped before anything is fitted.
+# strip urls/domains from the text, they leak the label
 URLISH = re.compile(
-    r"https?://\S+"                      # a full link
-    r"|\b[\w-]+\.(?:com|org|net|co|uk|news|tv|info|us|ru)\b\S*"  # a bare domain
+    r"https?://\S+"
+    r"|\b[\w-]+\.(?:com|org|net|co|uk|news|tv|info|us|ru)\b\S*"
     r"|\bwww\.\S+",
     re.IGNORECASE,
 )
@@ -73,9 +50,8 @@ def strip_links(text: str) -> str:
     return URLISH.sub(" ", text).strip()
 
 
-# ---------------------------------------------------------------- 1. is it a claim
+# 1. claims?
 def claim_rate(rows: list[dict]) -> dict:
-    """How often these posts state something a verdict could be about."""
     scores = [checkworthy.score(r["text"]) for r in rows]
     kept = [s for s in scores if s >= CHECKWORTHY_FLOOR]
     by_class = {}
@@ -87,9 +63,8 @@ def claim_rate(rows: list[dict]) -> dict:
             "rate_misleading": by_class[0], "rate_reliable": by_class[1]}
 
 
-# ---------------------------------------------------------------- 2. transfer
+# 2. transfer
 def transfer(rows: list[dict]) -> list[dict]:
-    """The LIAR-trained models applied unchanged, and how they answer."""
     from factnet.serve.content import linear_score, transformer_score
     from factnet.serve.registry import by_key, catalogue
 
@@ -121,11 +96,7 @@ def transfer(rows: list[dict]) -> list[dict]:
 
 
 def _bootstrap(truth, predicted, rounds: int = 5000, seed: int = 0):
-    """An interval on 398 posts, so that "falls to chance" can be checked.
-
-    The sample is small enough that a macro-F1 of 0.590 and one of 0.500 are not
-    obviously different, and the claim being made is precisely that they are not.
-    """
+    """bootstrap CI, only 398 posts so 0.59 vs 0.50 isn't obvious"""
     import numpy as np
 
     rng = np.random.default_rng(seed)
@@ -139,7 +110,7 @@ def _bootstrap(truth, predicted, rounds: int = 5000, seed: int = 0):
     return tuple(np.nanpercentile(scores, [2.5, 97.5]))
 
 
-# ---------------------------------------------------------------- 3 and 4. in domain
+# 3 + 4. in domain
 def _fit_eval(train: list[dict], test: list[dict], field: str) -> float:
     clf = make_pipeline(
         TfidfVectorizer(ngram_range=(1, 2), min_df=2, max_features=50_000),
@@ -151,7 +122,7 @@ def _fit_eval(train: list[dict], test: list[dict], field: str) -> float:
 
 
 def _domain_split(rows: list[dict], seed: int) -> tuple[list[dict], list[dict]]:
-    """Held-out outlets, so nothing is scored on a domain it was fitted on."""
+    """split by domain"""
     import random
 
     domains = sorted({r.get("source_domain", "") for r in rows})
@@ -172,7 +143,7 @@ def _post_split(rows: list[dict], seed: int) -> tuple[list[dict], list[dict]]:
 
 
 def in_domain(rows: list[dict]) -> list[dict]:
-    """Trained and tested here, crossing the split with the link confound."""
+    """{post split, domain split} x {with links, links stripped}"""
     for row in rows:
         row["raw"] = row["text"]
         row["stripped"] = strip_links(row["text"])

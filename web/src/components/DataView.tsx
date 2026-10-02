@@ -9,7 +9,7 @@ export default function DataView() {
     return r.json();
   }), []);
   const data = loaded.data;
-  // the index follows the reader rather than the reader hunting the index
+  // highlight the current section in the index
   useEffect(() => {
     if (!data) return;
     const spotter = new IntersectionObserver(
@@ -94,17 +94,13 @@ export default function DataView() {
               are that second quantity.
             </p>
 
-            {/* The asymmetry is the finding of this sample, so it is drawn. Two
-                classes on one axis of accounts per cascade, which is the axis
-                the size confound is measured on. */}
+            {/* accounts per cascade by class (the size confound) */}
             <div className="mt-5 space-y-3">
               {c.classes.map((row: any) => {
                 const widest = Math.max(...c.classes.map((x: any) => x.mean_accounts));
                 return (
                   <div key={row.name} className="grid items-center gap-x-5 sm:grid-cols-[164px_1fr_74px]">
-                    {/* the cascade count belongs on the row: without it the bar
-                        reads as the class size, and 200 against 200 is exactly
-                        what these bars are not measuring */}
+                    {/* show n, otherwise the bar looks like the class size */}
                     <span className="text-[13px]">
                       {row.name}
                       <span className="ml-1.5 tnum font-mono text-[11.5px] text-ink-faint">

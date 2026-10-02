@@ -1,23 +1,8 @@
-"""Can the transfer failure be repaired, and what does it teach?
+"""Twitter -> Bluesky transfer collapses to one class. Can we fix it?
 
-Applying a detector trained on Twitter cascades to Bluesky ones makes it
-collapse to a single class. This module asks what follows from that, in three
-steps whose order matters.
-
-The first is a diagnostic, and it comes first because the other two depend on
-its answer: trained and tested on the collected cascades alone, does cascade
-shape carry any signal about the credibility of the linked source? If it does
-not, the failure is not one of transfer at all but of the construct, and no
-amount of adaptation would help.
-
-The second asks how much labelled data from the new platform is needed to
-recover, by fine-tuning the benchmark-trained model on a growing fraction of
-the collected set.
-
-The third avoids new labels entirely: absolute sizes differ by an order of
-magnitude between the platforms, so the model is trained on ratios instead,
-the share of accounts one hop from the source and the depth relative to the
-cascade's own size, which are dimensionless and therefore portable.
+1. diagnostic: train+test on bluesky only, is there any signal at all?
+2. fine-tune the UPFD model on more and more bluesky labels (vs from scratch)
+3. no labels: train on scale-free features (ratios) instead of raw counts
 
     uv run python -m factnet.graph.adaptation
 """
@@ -44,14 +29,7 @@ SEEDS = (0, 1, 2)
 
 
 def shape_features(data: Data) -> torch.Tensor:
-    """Per-node features that do not depend on the platform's scale.
-
-    Absolute counts do not survive the move: a Bluesky cascade holds three
-    times the accounts of a GossipCop one. Ratios do, so every node carries its
-    depth relative to the cascade's own depth, its share of the cascade's
-    nodes, and whether it sits one hop from the source, which is the quantity
-    that separated the classes on the benchmark.
-    """
+    """Scale-free node features (bluesky cascades are ~3x bigger than gossipcop)."""
     n = data.num_nodes
     adj: list[list[int]] = [[] for _ in range(n)]
     for s, t in data.edge_index.t().tolist():
@@ -72,10 +50,10 @@ def shape_features(data: Data) -> torch.Tensor:
     rows = []
     for node in range(n):
         d = depth.get(node, max_depth)
-        rows.append([d / max_depth,                       # relative position
-                     1.0 if d == 1 else 0.0,              # one hop from the source
-                     len(adj[node]) / n,                  # share of the cascade touched
-                     direct / n])                         # fan-out of this cascade
+        rows.append([d / max_depth,
+                     1.0 if d == 1 else 0.0,              # direct share
+                     len(adj[node]) / n,
+                     direct / n])
     return torch.tensor(rows, dtype=torch.float)
 
 
@@ -88,7 +66,7 @@ def collected() -> list[Data]:
 
 
 def split(graphs: list[Data], fraction: float, seed: int) -> tuple[list[Data], list[Data]]:
-    """Stratified split, so both parts keep the class balance."""
+    """stratified"""
     generator = torch.Generator().manual_seed(seed)
     train, test = [], []
     for label in (0, 1):
@@ -105,9 +83,7 @@ def fit(train_list: list[Data], in_dim: int, epochs: int = 60, seed: int = 0,
     torch.manual_seed(seed)
     model = start_from if start_from is not None else BiGCN(in_dim, 64, 2)
     opt = torch.optim.Adam(model.parameters(), lr=lr, weight_decay=5e-4)
-    # 128 everywhere: this module and ood_eval both describe themselves as
-    # "the detector trained on GossipCop", and for a while they trained it
-    # differently, which put two figures in the article for one object
+    # keep 128, must match ood_eval (they used to differ -> two numbers in the paper)
     loader = DataLoader(train_list, batch_size=128, shuffle=True)
     for _ in range(epochs):
         model.train()
@@ -129,7 +105,6 @@ def score(model: BiGCN, graphs: list[Data]) -> float:
 
 
 def diagnostic(graphs: list[Data]) -> None:
-    """Does cascade shape predict source credibility within Bluesky at all?"""
     scores = []
     for seed in SEEDS:
         train, test = split(graphs, 0.6, seed)
@@ -139,18 +114,12 @@ def diagnostic(graphs: list[Data]) -> None:
 
 
 def how_much_data(graphs: list[Data], upfd) -> None:
-    """How many collected cascades does recovery need, and does the benchmark help?
-
-    Each budget is spent twice, once fine-tuning the benchmark-trained model and
-    once training from scratch on the same cascades, so that the two columns
-    answer a question the first alone cannot: whether starting from the
-    benchmark is worth anything at all.
-    """
+    """For each label budget: fine-tune the UPFD model vs train from scratch."""
     print(f"  {'cascades':>8s} {'fine-tuned':>11s} {'from scratch':>13s}")
     for fraction in (0.0, 0.1, 0.25, 0.5):
         tuned, fresh = [], []
         for seed in SEEDS:
-            train, test = split(graphs, 0.5, seed)          # test half is fixed
+            train, test = split(graphs, 0.5, seed)          # fixed test half
             base = fit(list(upfd), upfd.num_features, seed=seed)
             if fraction == 0:
                 tuned.append(score(base, test))
@@ -166,7 +135,6 @@ def how_much_data(graphs: list[Data], upfd) -> None:
 
 
 def portable_features(graphs: list[Data], upfd_train, upfd_test) -> None:
-    """Train on the benchmark with dimensionless features, test on Bluesky."""
     tr, te, col = as_shape(upfd_train), as_shape(upfd_test), as_shape(graphs)
     in_dom, ood = [], []
     for seed in SEEDS:

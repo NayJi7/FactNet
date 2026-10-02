@@ -52,8 +52,7 @@ export default function InputPanel({
     }
   };
 
-  // Ctrl or Cmd with Enter runs it. Enter alone still breaks the line, since
-  // the field holds a post and a post has paragraphs.
+  // ctrl/cmd+enter to run, plain enter = newline
   const sendOnEnter = (e: React.KeyboardEvent) => {
     if (e.key === "Enter" && (e.metaKey || e.ctrlKey) && !busy) { e.preventDefault(); submit(); }
   };
@@ -142,10 +141,8 @@ export default function InputPanel({
                 Leave it out and the cascade is read on its shape alone, which the
                 interface will tell you.
               </p>
-              {/* Two different offers. The structure is a skeleton to fill in,
-                  and the example is a real collected cascade: a two-node stub
-                  scores confidently on an object with no shape, which teaches
-                  the wrong thing about what the detector reads. */}
+              {/* empty template, or a real sample as the example (a 2-node toy
+                  cascade still gets a confident score, misleading) */}
               <div className="flex flex-wrap gap-2">
                 <button
                   onClick={() => {
@@ -198,7 +195,7 @@ export default function InputPanel({
             {models.map((m) => (
               <option key={m.key} value={m.key} disabled={!m.available}>
                 {m.name}
-                {m.macro_f1 ? ` — macro-F1 ${m.macro_f1}` : ""}
+                {m.macro_f1 ? `, macro-F1 ${m.macro_f1}` : ""}
                 {m.primary ? " (of record)" : ""}
               </option>
             ))}
@@ -236,7 +233,7 @@ export default function InputPanel({
               .map((m) => (
                 <option key={m.key} value={m.key}>
                   {m.name}
-                  {m.macro_f1 ? ` — macro-F1 ${m.macro_f1}` : ""}
+                  {m.macro_f1 ? `, macro-F1 ${m.macro_f1}` : ""}
                 </option>
               ))}
           </select>

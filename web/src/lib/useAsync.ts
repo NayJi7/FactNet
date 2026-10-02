@@ -1,21 +1,9 @@
 import { useEffect, useState } from "react";
 
 /**
- * One way of loading data, with the two things every panel here was missing.
- *
- * Each view used to fetch in its own effect and swallow the rejection, which
- * had a failure mode nobody would diagnose from the screen: reloading while a
- * request was in flight aborts it, the panel renders nothing at all, and
- * clicking the same item again re-runs no effect because the value it is keyed
- * on has not changed. The reading looked broken while the engine was fine, and
- * the only way out was another reload.
- *
- * So two guarantees. A failure becomes a value the caller has to render rather
- * than a silence, and `reload` re-runs the load even when nothing else changed,
- * which is what lets a person recover without touching the address bar.
- *
- * A response that arrives after the inputs moved on is dropped: the panel
- * belongs to the request the viewer is waiting for, not to the one they left.
+ * Small fetch hook. Errors are returned (not swallowed) and reload() refetches
+ * even if the deps didn't change. Before this, a reload mid-request left an
+ * empty panel and clicking again did nothing. Stale responses are ignored.
  */
 export interface Async<T> {
   data: T | null;
@@ -40,8 +28,7 @@ export function useAsync<T>(load: () => Promise<T>, deps: unknown[] = []): Async
         if (!live) return;
         setData(null);
         setLoading(false);
-        // an aborted request is what a reload looks like from here, and calling
-        // that a failure would be a lie: it simply never finished
+        // aborted = page reload, not an error
         const message = cause instanceof Error ? cause.message : String(cause);
         setError(/abort|fetch|network|load failed/i.test(message)
           ? "That request did not finish, most likely because the page reloaded "
@@ -50,7 +37,7 @@ export function useAsync<T>(load: () => Promise<T>, deps: unknown[] = []): Async
       },
     );
     return () => { live = false; };
-    // load is rebuilt on every render, so the caller declares what it depends on
+    // caller passes the deps
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [...deps, attempt]);
 

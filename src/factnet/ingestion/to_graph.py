@@ -1,13 +1,6 @@
-"""Turn collected Bluesky cascades into the graph objects the models expect.
+"""Collected cascades -> PyG Data, same layout as UPFD so the same models run on both.
 
-The benchmark cascades reach the models as PyTorch Geometric graphs whose nodes
-carry the ``profile`` feature vector; the records produced by the collector are
-converted to exactly that shape so a model trained on the benchmark can be
-evaluated on collected data without any change to its input format.
-
-Counter features are compressed with ``log1p`` and scaled, mirroring how the
-benchmark normalises its own account statistics: raw follower counts span
-several orders of magnitude and would otherwise dominate every other feature.
+Counters go through log1p + scaling (follower counts go from 0 to millions).
 """
 
 from __future__ import annotations
@@ -23,7 +16,6 @@ LENGTH_SLOTS = (7, 8, 9)    # handle, display name, description
 
 
 def read_cascades(path: str | Path) -> list[dict]:
-    """Read a JSONL file produced by the collector."""
     with Path(path).open(encoding="utf-8") as handle:
         return [json.loads(line) for line in handle if line.strip()]
 
@@ -32,26 +24,21 @@ BLANK_PROFILE = [0.0] * 10
 
 
 def normalise_profile(profile: list[float] | None) -> list[float]:
-    """Scale raw account statistics into a comparable range.
-
-    A node may arrive without a profile: a cascade pasted by hand carries a
-    topology and rarely the ten counters. The vector is then all zeros, which
-    the pipeline detects as constant features and answers by reading the shape
-    alone rather than by pretending to know the accounts.
-    """
+    """No profile (hand-pasted cascades) -> zeros, the pipeline then uses the
+    structure-only model."""
     out = list(profile) if profile else list(BLANK_PROFILE)
     if len(out) != len(BLANK_PROFILE):
         raise ValueError(f"a profile holds {len(BLANK_PROFILE)} numbers, got {len(out)}")
     for slot in COUNTER_SLOTS:
         out[slot] = math.log1p(max(0.0, out[slot])) / 15.0
-    out[AGE_SLOT] = min(1.0, out[AGE_SLOT] / 3650.0)  # ten years saturates
+    out[AGE_SLOT] = min(1.0, out[AGE_SLOT] / 3650.0)  # cap at 10y
     for slot in LENGTH_SLOTS:
         out[slot] = min(1.0, out[slot] / 300.0)
     return out
 
 
 def cascade_to_networkx(cascade: dict) -> Any:
-    """Directed graph of one cascade, source first, with normalised features."""
+    """nx.DiGraph, source first."""
     import networkx as nx
 
     graph = nx.DiGraph(uri=cascade.get("uri", ""), text=cascade.get("text", ""),
@@ -67,7 +54,7 @@ def cascade_to_networkx(cascade: dict) -> Any:
 
 
 def cascade_to_pyg(cascade: dict) -> Any:
-    """One cascade as a PyTorch Geometric ``Data`` object (root node first)."""
+    """PyG Data, root = node 0."""
     import torch
     from torch_geometric.data import Data
 

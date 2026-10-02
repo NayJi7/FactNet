@@ -1,9 +1,4 @@
-"""LIAR dataset loading (content-based verdict).
-
-Downloads the LIAR dataset on first use if it is missing, then loads the TSVs and
-maps the 6-way veracity labels to a binary reliable / misleading target, aligned
-with the project framing.
-"""
+"""LIAR loader. Downloads it on first use, 6 labels -> binary (1 = reliable)."""
 
 from __future__ import annotations
 
@@ -25,12 +20,11 @@ LIAR_URL = "https://www.cs.ucsb.edu/~william/data/liar_dataset.zip"
 
 
 def _ensure_liar(root: str = ROOT) -> None:
-    """Download and extract the LIAR dataset if it is not already present."""
     path = Path(root)
     if (path / "train.tsv").exists():
         return
     path.mkdir(parents=True, exist_ok=True)
-    with urllib.request.urlopen(LIAR_URL) as response:  # noqa: S310 (trusted URL)
+    with urllib.request.urlopen(LIAR_URL) as response:  # noqa: S310
         payload = response.read()
     with zipfile.ZipFile(io.BytesIO(payload)) as archive:
         archive.extractall(path)

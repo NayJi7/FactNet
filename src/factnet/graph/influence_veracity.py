@@ -1,24 +1,9 @@
-"""Does structural influence predict who spreads misinformation? (RQ2)
+"""RQ2: do high-influence accounts spread more misinformation?
 
-The influence ranking answers a purely structural question: which accounts sit
-where the diffusion passes. That is not what the project asks. RQ2 asks whether
-the accounts that rank high are the ones spreading unreliable content, and until
-the collected sample carried labels there was no way to ask it.
-
-The labelled sample allows the question, but not naively, because the two
-classes do not produce cascades of the same size: on this sample a reliable
-cascade holds 259 accounts on average against 44 for a misleading one. Four
-fifths of all account slots therefore sit in reliable cascades, and any account
-drawn at random lands in misleading content about 14 percent of the time
-whatever its behaviour. Comparing an account's misleading share against the
-50/50 balance of the cascade counts would read that arithmetic as a finding.
-
-Two things follow for the design. The baseline is the share of account *slots*
-that are misleading, not the share of cascades. And the association between
-influence and unreliability is tested against a null that shuffles influence
-only among accounts appearing in the same number of cascades, so that activity,
-which drives both centrality and the precision of a share, is held fixed and
-only the residual effect of influence is measured.
+Careful with the baseline: reliable cascades average 259 accounts vs 44 for
+misleading, so a random account slot is misleading only ~14% of the time, not
+50%. Baseline = share of misleading slots. Null = shuffle influence among
+accounts with the same number of cascades (activity drives both).
 
     uv run python -m factnet.graph.influence_veracity
 """
@@ -43,7 +28,7 @@ SEED = 0
 
 
 def account_labels(path: str | Path) -> tuple[dict[str, list[int]], int, int]:
-    """Per account, the label of every cascade it took part in (0 misleading)."""
+    """{account: [labels]}, 0 = misleading"""
     per_account: dict[str, list[int]] = {}
     slots = {0: 0, 1: 0}
     for cascade in read_cascades(path):
@@ -62,13 +47,7 @@ def misleading_share(labels: list[int]) -> float:
 
 def stratified_null(influences: list[float], shares: list[float], strata: list[int],
                     rounds: int = PERMUTATIONS, seed: int = SEED) -> tuple[float, float]:
-    """Rank correlation expected when influence is shuffled at equal activity.
-
-    Accounts that appear in many cascades are both more central and measured
-    more precisely, so a plain permutation would credit influence with an
-    association that activity alone produces. Shuffling within strata of equal
-    cascade count removes that route and leaves only what influence adds.
-    """
+    """Permutation null, shuffling influence within same-activity strata."""
     groups: dict[int, list[int]] = defaultdict(list)
     for index, stratum in enumerate(strata):
         groups[stratum].append(index)

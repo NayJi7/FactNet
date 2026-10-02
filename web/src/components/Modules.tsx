@@ -1,16 +1,6 @@
 import ModuleTag from "./ModuleTag";
 
-/**
- * What the two modules are, said once, where everyone lands.
- *
- * Their names are stamped on every stage and every table, and until now
- * nowhere on the site explained what either one reads or what it is worth.
- * A colour that labels something unexplained is decoration.
- *
- * Each panel states three things and no more: what the module reads, what it
- * costs it, and what it cannot do. The last one is the point of the project,
- * so it is not buried at the bottom of a results table.
- */
+/** The two modules explained: what each reads, what it gets, what it can't do. */
 const PANELS = [
   {
     module: "content" as const,

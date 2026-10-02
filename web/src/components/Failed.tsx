@@ -1,14 +1,4 @@
-/**
- * What a panel shows when its data did not arrive.
- *
- * The alternative, which this replaces, was nothing at all: a blank column and
- * a person clicking the same thing repeatedly with no way to know whether the
- * engine had died, the request had been cut, or they had misread the interface.
- *
- * It states what happened and offers the one action that helps. It does not
- * apologise, and it does not retry on its own: a silent retry loop against an
- * engine that is genuinely down is worse than a button.
- */
+/** Error state for a panel: the message + a retry button (no auto retry). */
 export default function Failed({ error, onRetry, what = "this" }:
                                { error: string; onRetry: () => void; what?: string }) {
   return (

@@ -37,14 +37,12 @@ def test_truncation_keeps_the_source_and_the_nearest_accounts():
     data = chain_cascade(10)
     partial = truncate(data, 0.5)
     assert partial.num_nodes == 5
-    # breadth-first order stands in for arrival, so the accounts kept are the
-    # ones closest to the source, and the source itself is never dropped
+    # BFS order, root always kept
     assert depths(partial) == {0: 0, 1: 1, 2: 2, 3: 3, 4: 4}
     assert truncate(data, 0.01).num_nodes == 1     # never empty
 
 
 def test_constant_features_fall_back_to_the_structure_only_detector():
-    """The collector once produced all-zero counters; a verdict must not pretend."""
     checkpoint, key, why = pick_checkpoint("bluesky", has_features=False)
     assert key == "bigcn-structure"
     assert "shape" in why
@@ -79,13 +77,7 @@ def test_trace_is_json_serialisable_and_rejects_unknown_figures():
 
 
 def test_unverifiable_text_stops_a_bare_claim_but_not_a_cascade():
-    """A wording stating no claim must not silence the propagation reading.
-
-    On its own such a text yields no verdict at all. Attached to a cascade it
-    yields a structural one, and the content reading is still computed and
-    shown, marked as taking no part: hiding it would conceal a judgement the
-    system made instead of explaining it.
-    """
+    """Text alone -> stop. Text + cascade -> structural verdict, content shown as advisory."""
     from factnet.serve.pipeline import run
 
     chatter = "lol this is so funny"
@@ -102,7 +94,6 @@ def test_unverifiable_text_stops_a_bare_claim_but_not_a_cascade():
     assert content.detail["counted"] is False      # reported, not used
     assert content.status == "warning"
     assert "not counted" in content.title
-    # the verdict must come from the cascade alone, untouched by that reading
     assert with_cascade.provenance["content"] is None
 
 
@@ -120,7 +111,6 @@ def test_api_refuses_a_malformed_cascade_with_a_usable_message():
     assert "'edges' list" in validate_cascade({"nodes": [{"did": "a"}]})
     assert "no 'did'" in validate_cascade({"nodes": [{}], "edges": []})
     assert "kind" in validate_cascade({"nodes": [{"did": "a"}], "edges": []})
-    # ten numbers or nothing: a short vector would be padded silently otherwise
     short = {"nodes": [{"did": "a", "kind": "source", "profile": [1, 2]}], "edges": []}
     assert "10 numbers" in validate_cascade(short)
     good = {"nodes": [{"did": "a", "kind": "source"}], "edges": []}
@@ -145,9 +135,7 @@ def test_catalogue_reports_every_model_with_the_score_it_earned():
 
     content = catalogue("content")
     assert {c["key"] for c in content} >= {"roberta", "bert", "tfidf"}
-    assert sum(c["primary"] for c in content) == 1        # exactly one of record
-    # a selector that showed a verdict without its benchmark score would invite
-    # trusting whichever model sounds most confident
+    assert sum(c["primary"] for c in content) == 1
     assert all(c["macro_f1"] is not None for c in content)
 
 
@@ -165,12 +153,7 @@ def test_results_tables_are_shaped_as_the_interface_expects():
 
 
 def test_api_rejects_a_stale_model_key_instead_of_crashing():
-    """A key the registry does not know must not reach the engine.
-
-    It used to raise a KeyError deep in the pipeline, which FastAPI turned into
-    a 500 with a traceback: the one error path that would have been visible on
-    screen during a demonstration.
-    """
+    """used to be a KeyError -> 500"""
     client = api_client()
     for payload, word in (
         ({"text": "The unemployment rate has doubled, according to the ministry.",
@@ -183,13 +166,7 @@ def test_api_rejects_a_stale_model_key_instead_of_crashing():
 
 
 def test_a_pasted_cascade_without_profiles_is_read_on_its_shape():
-    """The documented example omits the counters, and used to return a 500.
-
-    The validator says a profile may be left out; the converter then raised a
-    KeyError deep inside the request. A cascade typed by hand carries a topology
-    and rarely ten counters per account, so the vector is filled with zeros and
-    the pipeline falls back to reading the shape, saying so.
-    """
+    """No profiles -> zeros -> structure-only model (was a 500 before)."""
     client = api_client()
     pasted = {
         "text": "the claim the post makes",
@@ -210,12 +187,7 @@ def test_a_pasted_cascade_without_profiles_is_read_on_its_shape():
 
 
 def test_the_stream_sends_each_stage_as_it_lands():
-    """The streamed reading must carry the same stages as the plain one.
-
-    A viewer waits several seconds for a verdict, and the engine produces its
-    stages in order, so they are forwarded rather than withheld. The two
-    endpoints must not drift apart: whatever one reports, the other reports.
-    """
+    """/verdict/stream and /verdict must give the same steps."""
     client = api_client()
     payload = {"text": "The unemployment rate has doubled, the ministry said."}
 
@@ -244,12 +216,7 @@ def test_the_stream_sends_each_stage_as_it_lands():
 
 
 def test_every_model_card_matches_the_measurement_it_quotes():
-    """A card's macro-F1 must be the number its experiment actually wrote.
-
-    The dashboard shows each verdict beside the score the model earned, which
-    only means something if that score is current. These drifted once already,
-    by as much as 0.028, because they were literals nothing checked.
-    """
+    """Model card scores must match data/results (they drifted by up to 0.028 once)."""
     import json
     from pathlib import Path
 
@@ -272,7 +239,6 @@ def test_every_model_card_matches_the_measurement_it_quotes():
 
 
 def test_the_headline_numbers_come_from_the_result_files():
-    """No headline is a literal, so a rerun cannot leave one behind."""
     from factnet.serve.results import headlines
 
     values = {h["label"]: h["value"] for h in headlines()}
@@ -281,12 +247,7 @@ def test_the_headline_numbers_come_from_the_result_files():
 
 
 def test_the_worked_example_is_a_real_cascade_without_its_answer():
-    """The paste box offers a record, not a stub, and never the label.
-
-    A two-node placeholder scores confidently on an object that has no shape,
-    which teaches the wrong thing about what the detector reads. And a label in
-    the example would suggest the system is handed the answer, which it never is.
-    """
+    """The example must be a real cascade and must not include the label."""
     from fastapi.testclient import TestClient
 
     from factnet.serve.api import app
@@ -300,10 +261,9 @@ def test_the_worked_example_is_a_real_cascade_without_its_answer():
     assert len(cascade["nodes"]) >= 5, "a stub teaches the wrong lesson"
     assert any(n.get("kind") == "source" for n in cascade["nodes"])
 
-    # the route must not be swallowed by the one that takes an index
+    # /samples/example must not be caught by /samples/{index}
     assert client.get("/api/samples/1").status_code == 200
     assert client.get("/api/samples/99").status_code == 404
 
-    # and what it hands out has to be something the engine accepts
     assert client.post("/api/verdict", json={"cascade": cascade,
                                              "origin": "cascade"}).status_code == 200

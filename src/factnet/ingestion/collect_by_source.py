@@ -1,9 +1,6 @@
-"""Collect cascades whose label comes from the credibility of the linked source.
+"""Collect by domain: posts linking to rated outlets, labelled by the outlet's rating.
 
-Keyword search returned an unusable class balance, so this pass searches by
-domain instead: for each rated outlet, the posts that carry a link to it are
-retrieved and their cascades rebuilt, and the label is read from the rating of
-that outlet rather than from a judgement about the post.
+(keyword search gave almost no misleading posts, see domains.py)
 
     uv run python -m factnet.ingestion.collect_by_source --target 200
 """
@@ -30,7 +27,7 @@ OUT = Path(__file__).resolve().parents[3] / "data" / "raw" / "bluesky" / "cascad
 
 
 def ranked_low_domains(limit: int, path: Path = CACHE) -> list[str]:
-    """Listed unreliable domains, most trafficked first: those with a real audience."""
+    """Low-credibility domains, most visited first."""
     fetch_iffy(path)
     keep = set(load_low_credibility(path))
     with path.open(encoding="utf-8") as handle:
@@ -64,8 +61,7 @@ def collect(domains: list[str], label: str, client: BlueskyClient, low: dict[str
             uri = post.get("uri")
             if not uri or uri in seen:
                 continue
-            # the link must be attached to the post, not merely named in its text,
-            # and it must resolve to a rated source
+            # attached link only, and it has to be a rated domain
             links = [url for url in post_links(post)
                      if is_article(url) and classify(url, low) == label]
             if not links:

@@ -1,32 +1,13 @@
 /**
- * A cascade drawing itself, as the wait.
+ * Loading animation: a small cascade spreading from the source, then clearing.
+ * (replaced the three dots)
  *
- * The old placeholder was three dots, which say "something is happening" and
- * nothing else. This says what is happening: a post leaves one account and is
- * carried outward, hop by hop, which is the object the propagation model reads
- * and the reason this project exists.
+ * - the source stays, everything grows from it each cycle
+ * - a node never shows up before its parent
+ * - branches start one after another with different speeds
+ * - one shared cycle so it all clears at once (per-node timing just flickered)
  *
- * Three rules keep it a propagation rather than a shimmer of dots.
- *
- * The source never leaves. It is where the post came from, so it is drawn once
- * and stays for good, and every cycle grows out of it again.
- *
- * Nobody arrives before whoever passed it to them. Arrival times are walked
- * down the tree from the root, so a child always lands after its parent and
- * after the edge between them finishes drawing.
- *
- * The limbs leave one after another, each at its own rate, alternating fast and
- * slow. A post does not reach five accounts in the same instant, and two
- * branches of one cascade rarely travel at the same speed, so a picture where
- * every limb fills together is describing something that does not happen.
- *
- * Everything that is not the source shares one cycle, so the whole cascade
- * clears at the same moment and starts over together. Giving each node its own
- * tempo, which an earlier version did, dissolves the picture into nodes
- * flickering on and off with no reading at all.
- *
- * The motion is pure CSS, so nothing is driven from JavaScript and a busy page
- * cannot make it stutter.
+ * Pure CSS animation, no JS per frame.
  */
 const RINGS = [
   { count: 1, radius: 0, dot: 5.5 },
@@ -34,11 +15,11 @@ const RINGS = [
   { count: 11, radius: 58, dot: 2.6 },
   { count: 15, radius: 84, dot: 1.9 },
 ];
-const CYCLE = 2.4;            // one spread and one clearing, shared by all
-const BRANCH_GAP = [0.10, 0.24];  // between one branch leaving and the next
-const HOP = [0.07, 0.19];         // how long a post sits before being passed on
+const CYCLE = 2.4;                // s
+const BRANCH_GAP = [0.10, 0.24];
+const HOP = [0.07, 0.19];         // delay per hop
 
-/** Deterministic noise from an integer, so the figure never re-rolls itself. */
+/** seeded noise so the layout is the same on every render */
 function noise(seed: number): number {
   let t = (seed * 1013 + 0x6d2b79f5) >>> 0;
   t = Math.imul(t ^ (t >>> 15), t | 1);
@@ -49,7 +30,7 @@ function noise(seed: number): number {
 interface Dot {
   x: number; y: number; r: number;
   at: number; ring: number; parent: Dot | null;
-  branch: number;                 // which limb off the source it hangs from
+  branch: number;
 }
 
 function layout(): { dots: Dot[]; edges: [Dot, Dot][] } {
@@ -58,7 +39,7 @@ function layout(): { dots: Dot[]; edges: [Dot, Dot][] } {
   const previous: Dot[][] = [];
   let seed = 0;
 
-  // 1. place every account, irregularly but not randomly
+  // place the nodes
   RINGS.forEach((ring, depth) => {
     const here: Dot[] = [];
     for (let i = 0; i < ring.count; i++) {
@@ -75,7 +56,7 @@ function layout(): { dots: Dot[]; edges: [Dot, Dot][] } {
       here.push(dot);
       dots.push(dot);
       if (depth > 0) {
-        // whoever it was nearest to in the ring before is who passed it on
+        // parent = closest node in the previous ring
         const parents = previous[depth - 1];
         dot.parent = parents.reduce((best, p) =>
           (p.x - dot.x) ** 2 + (p.y - dot.y) ** 2 <
@@ -86,9 +67,7 @@ function layout(): { dots: Dot[]; edges: [Dot, Dot][] } {
     previous.push(here);
   });
 
-  // 2. the limbs leave one after another rather than all at once, and each
-  //    carries its own tempo: a post does not reach five people in the same
-  //    instant, and two branches of one cascade rarely move at the same rate.
+  // branch start times + speeds
   const limbs = RINGS[1].count;
   const starts: number[] = [];
   const tempo: number[] = [];
@@ -96,13 +75,11 @@ function layout(): { dots: Dot[]; edges: [Dot, Dot][] } {
   for (let b = 0; b < limbs; b++) {
     starts.push(clock);
     clock += BRANCH_GAP[0] + noise(500 + b) * (BRANCH_GAP[1] - BRANCH_GAP[0]);
-    // alternating, so consecutive limbs never move at the same rate
+    // fast / slow / fast...
     tempo.push((b % 2 ? 1.35 : 0.75) * (0.85 + noise(700 + b) * 0.3));
   }
 
-  // 3. then walk the arrivals down each limb, so nobody is reached before the
-  //    account that reached them. Depth order is enough: a parent is always in
-  //    the ring above, and its own time is already settled when we get here.
+  // arrival times, parents first (depth order is enough)
   dots.forEach((dot, i) => {
     if (!dot.parent) return;
     if (dot.branch < 0) dot.branch = dot.parent.branch;
@@ -118,16 +95,9 @@ function layout(): { dots: Dot[]; edges: [Dot, Dot][] } {
 const { dots, edges } = layout();
 const SOURCE = dots[0];
 
-/**
- * One keyframe per element.
- *
- * A shared keyframe plus a per-element delay shifts the whole timeline, the
- * clearing included, so the cascade dissolves in a rolling wave instead of at
- * once. Writing the arrival into each element's own keyframe leaves the fade
- * window identical for all of them, which is what makes the picture clear
- * together and start over as one spread.
- */
-const HOLD = 78, GONE = 88;      // per cent of the cycle: fade window, shared
+// one keyframe per element instead of animation-delay, otherwise the fade out
+// gets delayed too and it clears in a wave
+const HOLD = 78, GONE = 88;      // % of the cycle
 
 function sheet(): string {
   const at = (t: number) => Math.min(HOLD - 6, (t / CYCLE) * 100);
@@ -190,8 +160,7 @@ export default function Spreading({ size = 168 }: { size?: number }) {
                          animation: `sp-d${i} ${CYCLE}s cubic-bezier(0.22,1,0.36,1) infinite both` }} />
       ))}
 
-      {/* the source, which never leaves: the post came from somewhere, and that
-          somewhere does not stop existing between two spreads */}
+      {/* source, always visible */}
       <circle cx={SOURCE.x} cy={SOURCE.y} r={SOURCE.r} fill="var(--color-signal)" />
       <circle cx={SOURCE.x} cy={SOURCE.y} r={SOURCE.r} fill="none"
               stroke="var(--color-signal)" strokeWidth="1"

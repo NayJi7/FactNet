@@ -7,12 +7,12 @@
   --font-sans: "IBM Plex Sans Variable", ui-sans-serif, system-ui, sans-serif;
   --font-mono: "IBM Plex Mono", ui-monospace, monospace;
 
-  /* Ground: engineering paper, cool with a green cast. Never white. */
+  /* background, slightly green, not pure white */
   --color-paper:      oklch(0.977 0.004 170);
   --color-panel:      oklch(0.995 0.002 170);
   --color-sunk:       oklch(0.955 0.006 175);
 
-  /* Ink: desaturated indigo. Never black. */
+  /* text, dark indigo instead of black */
   --color-ink:        oklch(0.28  0.035 265);
   --color-ink-soft:   oklch(0.47  0.025 262);
   --color-ink-faint:  oklch(0.63  0.018 258);
@@ -20,20 +20,15 @@
   --color-rule:       oklch(0.905 0.008 200);
   --color-rule-firm:  oklch(0.845 0.012 205);
 
-  /* The measurement accent. Amber carries the unreliable side of every axis.
-     Green and red are deliberately absent: this reports a distance from a
-     boundary, not a ruling. */
+  /* amber = the misleading side. no red/green on purpose */
   --color-signal:     oklch(0.705 0.145 62);
   --color-signal-dim: oklch(0.93  0.045 72);
 
-  /* The structural signal, distinct from content without becoming a second
-     semantic colour. It doubles as the mark of the propagation module. */
+  /* propagation module */
   --color-struct:     oklch(0.53  0.075 212);
   --color-struct-dim: oklch(0.93  0.028 208);
 
-  /* The content module. Same lightness and chroma as the structural blue, a
-     different hue: the pair has to read as two halves of one thing, not as a
-     ranking, so neither may look louder than the other. */
+  /* content module, same lightness/chroma as the blue so neither stands out */
   --color-content:     oklch(0.53  0.075 305);
   --color-content-dim: oklch(0.93  0.028 305);
 
@@ -49,9 +44,7 @@
     -webkit-font-smoothing: antialiased;
     font-feature-settings: "cv05" 1, "ss03" 1;
 
-    /* Engineering paper, at the edge of visibility. The metaphor the whole
-       palette rests on, made literal: a surface you take measurements on.
-       Any stronger and it would be wallpaper. */
+    /* faint graph paper grid */
     background-image:
       linear-gradient(to right,  oklch(0.60 0.03 200 / 0.045) 1px, transparent 1px),
       linear-gradient(to bottom, oklch(0.60 0.03 200 / 0.045) 1px, transparent 1px);
@@ -59,13 +52,10 @@
     background-attachment: fixed;
   }
 
-  /* Every figure in this interface is read as a number before it is read as a
-     shape, so digits align on the column across the whole surface. */
+  /* tabular numbers everywhere */
   .tnum { font-variant-numeric: tabular-nums; }
 
-  /* The reset ships buttons with the default arrow, which leaves most of what
-     can be clicked here looking inert. Stated once rather than remembered at
-     every call site, and a control that is switched off says so instead. */
+  /* tailwind reset leaves buttons with the default cursor */
   button, summary, select, [role="button"], a[href] { cursor: pointer; }
   button:disabled, [aria-disabled="true"] { cursor: not-allowed; }
 
@@ -78,12 +68,10 @@
     border-radius: 2px;
   }
 
-  /* a summary is focusable and, left alone, shows nothing when tabbed to */
+  /* focus ring on <summary> */
   summary { outline-offset: 3px; }
 
-  /* form fields marked focus only by a border colour, which is quieter than
-     the ring every other control gets; they are the primary inputs and should
-     not be the least visible thing to arrive on */
+  /* inputs get a ring too, not just a border colour */
   textarea:focus-visible,
   input:focus-visible,
   select:focus-visible {
@@ -93,7 +81,7 @@
 }
 
 @layer components {
-  /* The eyebrow: small, wide, quiet. Used for one thing only, naming a region. */
+  /* small caps section label */
   .eyebrow {
     font-size: 0.6875rem;
     letter-spacing: 0.13em;
@@ -102,9 +90,7 @@
     font-weight: 500;
   }
 
-  /* Which module a stage or a table belongs to. A rule on the left rather than
-     a filled pill: the label has to be findable when scanning the column and
-     invisible when reading the prose, and a pill is neither. */
+  /* module tag = left border, a pill was too loud */
   .module-tag {
     display: inline-flex;
     align-items: baseline;
@@ -122,9 +108,7 @@
   .module-both        { color: var(--color-ink-faint); }
 }
 
-/* A cascade drawing itself. Each edge is drawn before the account at its end
-   appears, because that is the order the thing happens in, and the whole
-   figure clears and starts again so the wait never looks stalled. */
+/* loading cascade (Spreading.tsx): edge first, then the node, then loop */
 @keyframes spread-edge {
   0%   { stroke-dashoffset: var(--len); opacity: 0; }
   4%   { opacity: 0.85; }
@@ -141,14 +125,14 @@
   74%  { transform: scale(1); opacity: 0; }
   100% { transform: scale(1); opacity: 0; }
 }
-/* the source keeps its own slow ring, so the centre never reads as finished */
+/* slow pulse on the source */
 @keyframes spread-source {
   0%   { r: 5.5; opacity: 0.9; }
   55%  { r: 15; opacity: 0; }
   100% { r: 15; opacity: 0; }
 }
 
-/* the indeterminate sweep: it says "working", never "this far along" */
+/* indeterminate progress bar */
 @keyframes sweep {
   0%   { transform: translateX(-100%); }
   100% { transform: translateX(300%); }
@@ -162,7 +146,7 @@
 
 @media (prefers-reduced-motion: reduce) {
   .settle { animation: none; }
-  /* the cascade holds its finished state instead of replaying it */
+  /* reduced motion: show it finished, no loop */
   .spreading * { animation: none !important; opacity: 1 !important;
                  stroke-dashoffset: 0 !important; transform: none !important; }
   [aria-busy="true"] * { animation: none !important; }

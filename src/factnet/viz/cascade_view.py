@@ -1,10 +1,4 @@
-"""Drawing and ranking helpers behind the dashboard.
-
-The plotting logic is kept apart from the Streamlit layer so that it can be
-exercised without a browser: a cascade becomes a directed graph, every account
-receives an influence score, and the layout places the news source at the top
-with each reshare hop on its own row.
-"""
+"""Plot / ranking helpers for the streamlit viewer (kept separate so tests don't need streamlit)."""
 
 from __future__ import annotations
 
@@ -17,7 +11,7 @@ PALETTE = {"source": "#0FA297", "repost": "#14284D", "reply": "#6B7C93"}
 
 
 def from_pyg(data: Any, label: int | None = None) -> Any:
-    """Benchmark cascade (PyG ``Data``) as a directed graph, root node first."""
+    """PyG Data -> nx.DiGraph"""
     import networkx as nx
 
     graph = nx.DiGraph(label=label if label is not None else int(getattr(data, "y", 0)))
@@ -30,7 +24,6 @@ def from_pyg(data: Any, label: int | None = None) -> Any:
 
 
 def annotate_influence(graph: Any) -> list[tuple[Any, float]]:
-    """Attach an influence score to every node and return the ranking."""
     if graph.number_of_nodes() == 0:
         return []
     ranked, reach, pagerank, coreness = influence_ranking(graph, top_k=graph.number_of_nodes())
@@ -41,7 +34,7 @@ def annotate_influence(graph: Any) -> list[tuple[Any, float]]:
 
 
 def hierarchy_layout(graph: Any, root: Any = None) -> dict[Any, tuple[float, float]]:
-    """Place the source at the top and each reshare hop on the row below."""
+    """one row per hop, source on top"""
     if graph.number_of_nodes() == 0:
         return {}
     root = root if root is not None else next(iter(graph.nodes))
@@ -54,7 +47,7 @@ def hierarchy_layout(graph: Any, root: Any = None) -> dict[Any, tuple[float, flo
             if neighbour not in levels:
                 levels[neighbour] = levels[node] + 1
                 queue.append(neighbour)
-    for node in graph.nodes:  # disconnected accounts sit on the last row
+    for node in graph.nodes:  # unreachable -> last row
         levels.setdefault(node, max(levels.values(), default=0) + 1)
 
     rows: dict[int, list[Any]] = {}
@@ -71,7 +64,6 @@ def hierarchy_layout(graph: Any, root: Any = None) -> dict[Any, tuple[float, flo
 
 
 def draw(graph: Any, highlight: int = 5, title: str = "") -> Any:
-    """Matplotlib figure of the cascade, node size scaled by influence."""
     import matplotlib.pyplot as plt
     import networkx as nx
 
@@ -95,7 +87,6 @@ def draw(graph: Any, highlight: int = 5, title: str = "") -> Any:
 
 
 def spreader_table(graph: Any, top_k: int = 10) -> list[dict[str, Any]]:
-    """Top accounts by influence, with the components of the score."""
     ranked = annotate_influence(graph)[:top_k]
     return [{"rank": i, "account": graph.nodes[node].get("handle", str(node)),
              "influence": round(score, 3),

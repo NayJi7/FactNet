@@ -2,18 +2,8 @@ import ModuleTag from "./ModuleTag";
 import type { ModelCard } from "../lib/types";
 
 /**
- * The six detectors, what separates them, and why the system picks for you.
- *
- * The content side already had this page and the propagation side did not,
- * which left a selector offering six names with nothing to choose between.
- * The names matter more here than on the content side, because these models
- * are not interchangeable: two of them read a different feature set, one reads
- * no features at all, and one was trained on another platform entirely.
- * Choosing the wrong one does not lower the score a little, it produces a
- * confident number computed on nothing.
- *
- * Scores come from the engine, so they cannot drift from what the selector
- * offers.
+ * The graph detectors and how they differ (features, platform), and why the
+ * default is picked automatically. Scores come from /api/models.
  */
 const FAMILY: Record<string, { kind: string; what: string }> = {
   "bigcn-upfd-profile": {

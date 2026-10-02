@@ -1,10 +1,5 @@
-"""How fake and real content propagate: structural comparison of cascades.
-
-Beyond classifying cascades, the project asks what actually differs between the
-spread of misleading and reliable stories. For every UPFD cascade this reports
-size, depth, breadth, and structural virality (the mean pairwise distance
-between nodes, Goel et al., 2016), split by label, so that the detector's
-decisions can be related to observable diffusion patterns.
+"""Fake vs real cascades on UPFD: size, depth, breadth, structural virality
+(Goel et al. 2016), per class.
 
     uv run python -m factnet.graph.propagation_stats
 """
@@ -29,7 +24,6 @@ def _adjacency(data) -> list[list[int]]:
 
 
 def cascade_shape(data) -> dict[str, float]:
-    """Size, depth, breadth and structural virality of one cascade."""
     adj = _adjacency(data)
     depth = {0: 0}
     queue, order = deque([0]), [0]
@@ -48,12 +42,13 @@ def cascade_shape(data) -> dict[str, float]:
         "depth": float(max(depth.values())),
         "breadth": float(max(levels.values())),
         "direct_shares": float(sum(1 for d in depth.values() if d == 1)),
-        "virality": float(statistics.fmean(depth.values())),  # mean distance to the source
+        # not really the pairwise version from Goel et al, just mean distance to the root
+        "virality": float(statistics.fmean(depth.values())),
     }
 
 
 def compare(name: str = "politifact", feature: str = "profile") -> dict[str, dict[str, float]]:
-    """Average cascade shape per class (0 = fake, 1 = real in UPFD)."""
+    """mean shape per class (UPFD: 0 = fake, 1 = real)"""
     shapes: dict[int, list[dict[str, float]]] = {0: [], 1: []}
     for split in ("train", "val", "test"):
         for data in UPFD(ROOT, name, feature, split=split):

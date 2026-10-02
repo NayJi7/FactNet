@@ -1,17 +1,8 @@
-"""Daily usage limits for the public deployment.
+"""Daily limits for the public server: per IP + a global cap, reset at midnight (Paris).
 
-The dashboard runs on a personal server, and two calls cost something real: a
-reading runs the models, and a live fetch spends the Bluesky account's quota.
-Each visitor gets a daily allowance of both, and the whole site gets a ceiling,
-so that one visitor rotating addresses still cannot run the box hot all day.
-
-Counts live in memory and reset at midnight, Paris time. A restart forgets them,
-which is fine for a demo and keeps the read-only container free of a database.
-
-Only what a visitor brings counts: their own text, their own cascade, a live
-Bluesky link. Reading the data the site already holds (the collected cascades,
-the example posts) is free, and each of those readings is computed once and
-kept, so the cost stays bounded however often they are asked for.
+Only what the visitor brings is counted (own text / cascade / bluesky link).
+Samples and example posts are free and cached forever. In memory, a restart
+resets everything, good enough for a demo.
 """
 
 from __future__ import annotations
@@ -74,7 +65,6 @@ class Quota:
             self._day, self._visitors, self._site = day, {}, {}
 
     def take(self, visitor: str, kind: str) -> None:
-        """Count one use, or raise LimitReached without counting it."""
         limit = self.limits[kind]
         noun = "readings" if kind == "reading" else "Bluesky links"
         with self._lock:
@@ -104,12 +94,8 @@ class Quota:
 
 
 def visitor_of(peer: str | None, headers: dict[str, str]) -> str:
-    """The caller's address, read through the reverse proxy when there is one.
-
-    Forwarded headers are only trusted from a private or loopback peer, which is
-    nginx on the same host or the Docker bridge. From anywhere else they could
-    be forged to dodge the limit, so the peer itself is used.
-    """
+    """Client IP. X-Real-IP / X-Forwarded-For are only trusted from nginx or the
+    docker bridge (private/loopback peer), otherwise anyone could fake them."""
     peer = peer or "unknown"
     try:
         trusted = ipaddress.ip_address(peer).is_private or \
@@ -125,11 +111,7 @@ def visitor_of(peer: str | None, headers: dict[str, str]) -> str:
 
 
 class Cache:
-    """A small LRU, so the same request is never paid for twice.
-
-    size=None never evicts. That is for the data the site ships with, where the
-    number of distinct readings is fixed, so the cache cannot grow past it.
-    """
+    """Tiny LRU. size=None = never evict (for site data, bounded anyway)."""
 
     def __init__(self, size: int | None):
         self.size = size
@@ -157,6 +139,6 @@ class Cache:
 
 
 QUOTA = Quota()
-READINGS = Cache(64)       # whatever visitors bring
-SITE_DATA = Cache(None)    # the cascades and posts the site already holds
+READINGS = Cache(64)
+SITE_DATA = Cache(None)
 FETCHES = Cache(50)

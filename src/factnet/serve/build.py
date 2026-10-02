@@ -1,13 +1,6 @@
-"""Train and persist every model the dashboard serves from local data.
+"""Train + save the CPU models the dashboard uses (same configs as the reports).
 
-The transformers come from a GPU run and are downloaded; everything here trains
-on CPU in seconds to a few minutes, so it is rebuilt rather than shipped. The
-point of persisting at all is start-up time: a demonstration should not spend
-its first minute fitting models while someone watches.
-
-Each artefact is written with the configuration that produced the figure the
-article reports, so that a verdict shown in the interface can be traced back to
-a published number.
+Transformers come from the Kaggle GPU runs, not from here.
 
     uv run python -m factnet.serve.build
 """
@@ -34,7 +27,7 @@ SEED = 0
 
 
 def build_tfidf() -> None:
-    """The bag-of-words content model, identical to the reported baseline."""
+    """TF-IDF + logreg, same as the baseline in the report."""
     import joblib
     from sklearn.feature_extraction.text import TfidfVectorizer
     from sklearn.linear_model import LogisticRegression
@@ -43,8 +36,7 @@ def build_tfidf() -> None:
     from factnet.nlp.data import load_liar
 
     train = load_liar("train")
-    # named steps, because the explanation reaches into the vectoriser and the
-    # coefficients to report exact contributions
+    # named steps, content.py reads the vectoriser and coefs by name
     pipeline = Pipeline([
         ("tfidf", TfidfVectorizer(ngram_range=(1, 2), min_df=2, max_features=50_000)),
         ("clf", LogisticRegression(max_iter=1000, class_weight="balanced")),
@@ -76,7 +68,7 @@ def _save(model: torch.nn.Module, name: str, in_dim: int, architecture: str) -> 
 
 
 def constant_features(dataset) -> list[Data]:
-    """Every node feature replaced by one, leaving only the cascade's shape."""
+    """x = ones, structure only."""
     return [Data(x=torch.ones(d.num_nodes, 1), edge_index=d.edge_index, y=d.y)
             for d in dataset]
 
@@ -93,8 +85,7 @@ def build_graph_models() -> None:
     stripped = constant_features(train)
     _save(_fit(BiGCN(1, 64, 2), stripped), "bigcn-structure.pt", 1, "BiGCN")
 
-    # the integrated variant carries one extra column on the news root, which is
-    # where the content score is injected
+    # +1 column for the content score on the root
     from factnet.graph.integration import attach_scores
     scored = attach_scores(train, [0.0] * len(train))
     _save(_fit(BiGCN(dim + 1, 64, 2), scored), "bigcn-upfd-profile-score.pt",
@@ -108,8 +99,7 @@ def build_graph_models() -> None:
             width = collected[0].x.size(1)
             _save(_fit(BiGCN(width, 64, 2), collected),
                   "bigcn-collected.pt", width, "BiGCN")
-            # the same score column, trained on the collected platform, so the
-            # ablation on a Bluesky cascade is never shown by a benchmark model
+            # bluesky version of the scored model
             scored_collected = attach_scores(collected, [0.0] * len(collected))
             _save(_fit(BiGCN(width + 1, 64, 2), scored_collected),
                   "bigcn-collected-score.pt", width + 1, "BiGCN")
@@ -117,14 +107,12 @@ def build_graph_models() -> None:
 
 @lru_cache(maxsize=8)
 def load_graph_model(name: str) -> torch.nn.Module:
-    """Rebuild a saved detector from its checkpoint."""
     blob = torch.load(GRAPHS / name, weights_only=False)
     cls = {"BiGCN": BiGCN, "GCN": GCN, "GAT": GAT}[blob["architecture"]]
     model = cls(blob["in_dim"], 64, 2)
     model.load_state_dict(blob["state_dict"])
     model.eval()
-    # the checkpoint knows its input width; reading it off the first parameter
-    # would return the hidden size instead
+    # in_dim is saved in the checkpoint (first param shape gives hidden size, not input)
     model.in_dim = blob["in_dim"]
     return model
 

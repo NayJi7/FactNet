@@ -3,19 +3,8 @@ import { useState } from "react";
 const LEVELS = [20, 40, 60, 80, 100];
 
 /**
- * How much of the cascade the system is allowed to see.
- *
- * Offered only where there is a cascade to truncate. The choice applies to the
- * whole reading and not just to the detector: the shape, the influence ranking
- * and the integration all see the same truncated object, because asking what
- * the system would have said early is not a question about one stage.
- *
- * Drawn as a gauge that fills rather than five buttons that light up, because
- * the quantity being chosen is a proportion of something. Five separate
- * controls would read as a menu of unrelated options; a bar that is two fifths
- * full says what it means before the number is read. Hovering fills to the
- * value under the cursor, so the size of the choice is visible before it is
- * made.
+ * "% of the cascade observed" picker (20..100), only when there's a cascade.
+ * A gauge instead of 5 buttons, it's a proportion. Hover previews the fill.
  */
 export default function Observed({ value, onChange, disabled }:
                                  { value: number; onChange: (v: number) => void;

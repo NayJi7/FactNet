@@ -1,15 +1,7 @@
-"""How much does the influence ranking owe to the weights we chose?
+"""Does the ranking depend on our 0.5/0.3/0.2 weights? (we picked them, not fitted)
 
-The score combines reach, PageRank and k-core position under weights that are a
-stated design choice and are not fitted. An unfitted weight is a free parameter,
-and a reader is entitled to ask whether the ranking would survive a different
-one. The article claims it does. This measures the claim rather than asserting
-it, by rebuilding the score on the collected network under seven alternative
-weightings and comparing each ranking against the reference.
-
-Two statistics, because they fail differently. Spearman correlation says whether
-the whole ordering moves. The overlap of the top hundred says whether the part
-anyone would act on moves, which a global correlation can hide.
+7 other weightings vs the reference: Spearman on the whole ranking + overlap of
+the top 100 (spearman can hide changes at the top).
 
     uv run python -m factnet.graph.influence_weights
 """

@@ -96,26 +96,20 @@ def test_checkworthiness_separates_claims_from_chatter():
 
 
 def test_a_quantity_can_be_asserted_without_a_digit():
-    """"The unemployment rate has doubled" is as checkable as any figure.
-
-    The first rule set scored it 0.25, below the floor, because it matched only
-    the attribution: no digit appeared, and the verbs of magnitude were absent
-    from the vocabulary. Both gaps are closed here, and the negatives must not
-    move with them.
-    """
+    """regression: "unemployment rate has doubled" used to score 0.25 (no digit)"""
     from factnet.nlp.checkworthy import explain, score
 
     claim = "The unemployment rate has doubled since last year, according to sources online."
     assert score(claim) >= 0.3
     fired = explain(claim)
     assert fired["change"] and fired["measure"] and fired["attribution"]
-    assert not fired["quantity"]          # the point: no figure appears at all
+    assert not fired["quantity"]          # no number in it
 
     for wording in ("Inflation fell for the third month running, the ministry said.",
                     "Prices tripled after the agency approved the merger."):
         assert score(wording) >= 0.3, wording
 
-    # personal talk, jokes and requests stay out whatever vocabulary was added
+    # negatives still out
     for chatter in ("I think this is really funny, guess I'll never understand people",
                     "please someone tell me why my code does not compile, thanks",
                     "Anyone else awake at this hour? I love this city, it is beautiful"):
@@ -159,7 +153,7 @@ def test_anonymise_removes_identities_and_keeps_structure():
     assert "uri" not in first                  # the post URI embeds the author DID
     assert first["text"] == "a claim"          # the claim itself is kept
     assert len(first["nodes"]) == 4 and len(first["edges"]) == 3
-    # pseudonyms are stable across the whole sample, so a recurring account stays one account
+    # same account -> same pseudonym across records
     assert {n["account"] for n in first["nodes"]} == {n["account"] for n in second["nodes"]}
 
 
@@ -172,8 +166,7 @@ def test_anonymise_carries_label_provenance_without_exposing_it_to_the_scrub():
 
     cascade.update(source_domain="infowars.com", source_label="misleading", label=0)
     source_labelled, = anonymise([cascade])
-    # the outlet carries a .com, which the mention scrubber rewrites inside free
-    # text; the provenance field must reach the export intact all the same
+    # the scrubber eats ".com" in text but source_domain must stay intact
     assert source_labelled["source_domain"] == "infowars.com"
     assert source_labelled["source_label"] == "misleading"
     assert source_labelled["label"] == 0
@@ -194,8 +187,7 @@ def test_slot_baseline_accounts_for_unequal_cascade_sizes(tmp_path):
     """The baseline is the share of account slots, not the share of cascades."""
     from factnet.graph.influence_veracity import account_labels, misleading_share
 
-    # one small misleading cascade against one large reliable one: the cascade
-    # counts are balanced, the places an account can occupy are not
+    # 1 small misleading + 1 big reliable cascade
     cascades = [
         {"label": 0, "nodes": [{"did": f"m{i}"} for i in range(2)] + [{"did": "both"}]},
         {"label": 1, "nodes": [{"did": f"r{i}"} for i in range(8)] + [{"did": "both"}]},
@@ -217,14 +209,13 @@ def test_stratified_null_holds_activity_fixed():
     """Shuffling inside equal-activity strata cannot invent an association."""
     from factnet.graph.influence_veracity import stratified_null
 
-    # influence and share agree perfectly, but every account sits in one stratum
-    # of its own, so no shuffle is possible and the null can never beat it
+    # one account per stratum -> nothing to shuffle
     influences = [0.1, 0.2, 0.3, 0.4]
     shares = [0.0, 0.25, 0.5, 1.0]
     observed, p = stratified_null(influences, shares, strata=[1, 2, 3, 4], rounds=50)
     assert observed == pytest.approx(1.0)
     assert p == pytest.approx(1.0)   # every permutation reproduces the observation
 
-    # pooled into a single stratum the shuffle is free and the effect must dissolve
+    # one big stratum -> shuffle works
     _, p_free = stratified_null(influences, shares, strata=[1, 1, 1, 1], rounds=200)
     assert p_free > 0.05

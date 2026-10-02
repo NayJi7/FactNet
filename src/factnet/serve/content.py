@@ -1,17 +1,7 @@
-"""Score a piece of text, and show what the score rests on.
+"""Content scoring + explanations (attention and leave-one-out occlusion).
 
-Two explanation views accompany every transformer verdict, and they are not
-redundant. Attention shows where the model looked, which is a description of
-the computation and not, on its own, evidence of what mattered. Leave-one-out
-occlusion removes each token in turn and measures how far the probability
-moves, which is a direct causal statement about this input at the cost of one
-forward pass per token. Reporting only the first would flatter the model;
-reporting only the second would lose the picture the article shows.
-
-Occlusion is preferred here over the sampling-based attribution the article
-also reports, because it is exact and fast enough to stay interactive: a
-twenty-token claim costs twenty forward passes, where a sampled method costs
-hundreds for an approximation.
+Occlusion instead of LIME here: one forward pass per token, fast enough for
+the dashboard, and exact.
 """
 
 from __future__ import annotations
@@ -26,7 +16,7 @@ SPECIAL = {"<s>", "</s>", "[CLS]", "[SEP]", "<pad>", "[PAD]"}
 
 
 def _clean(token: str) -> str:
-    """Undo the sub-word markers so the interface shows readable text."""
+    """strip Ġ / ## markers"""
     return token.replace("Ġ", " ").replace("##", "").replace("▁", " ")
 
 
@@ -36,13 +26,13 @@ def _forward(model, encoded, want_attention: bool = False):
 
 
 def transformer_score(text: str, card: ModelCard) -> tuple[float, dict]:
-    """Probability the text is reliable, with attention over its tokens."""
+    """p(reliable) + last-layer attention."""
     tokenizer, model = load_transformer(card.path)
     encoded = tokenizer(text, truncation=True, max_length=MAX_LEN, return_tensors="pt")
     out = _forward(model, encoded, want_attention=True)
     probability = torch.softmax(out.logits, dim=1)[0, 1].item()
 
-    # last layer, averaged over heads, the row the classifier reads
+    # last layer, mean over heads, CLS row
     attention = out.attentions[-1][0].mean(dim=0)[0]
     ids = encoded["input_ids"][0]
     tokens = tokenizer.convert_ids_to_tokens(ids)
@@ -55,11 +45,7 @@ def transformer_score(text: str, card: ModelCard) -> tuple[float, dict]:
 
 @torch.no_grad()
 def occlusion(text: str, card: ModelCard, baseline: float) -> list[list]:
-    """Per-token effect on the verdict, measured by removing the token.
-
-    A positive value means the token pushed the model towards *reliable*: the
-    probability fell when it was taken away.
-    """
+    """Drop each token and see how p moves. > 0 means it pushed towards reliable."""
     tokenizer, model = load_transformer(card.path)
     encoded = tokenizer(text, truncation=True, max_length=MAX_LEN, return_tensors="pt")
     ids = encoded["input_ids"][0]
@@ -84,7 +70,7 @@ def occlusion(text: str, card: ModelCard, baseline: float) -> list[list]:
 
 
 def linear_score(text: str, card: ModelCard) -> tuple[float, dict]:
-    """The bag-of-words model, whose contributions need no approximation."""
+    """TF-IDF + logreg, contributions are just weight * value."""
     import joblib
 
     from factnet.serve.registry import MODELS
@@ -104,13 +90,10 @@ def linear_score(text: str, card: ModelCard) -> tuple[float, dict]:
 
 @torch.no_grad()
 def _fragments(text: str, card: ModelCard) -> list[bool]:
-    """For each scored token, whether it is a whole word or a piece of one.
+    """True if the token is a word piece.
 
-    Two families of tokeniser appear here and they mark word starts opposite
-    ways round: RoBERTa prefixes them with a space marker and leaves
-    continuations bare, BERT leaves starts bare and prefixes continuations. A
-    rule written for one silently inverts on the other, so which convention is
-    in use is read off the tokens themselves.
+    roberta marks word *starts* (Ġ), bert marks *continuations* (##), so we
+    detect which one we have from the tokens.
     """
     tokenizer, _ = load_transformer(card.path)
     encoded = tokenizer(text, truncation=True, max_length=MAX_LEN)
@@ -125,14 +108,10 @@ def _fragments(text: str, card: ModelCard) -> list[bool]:
 
 def decisive(text: str, model_key: str, probability: float,
              extra: dict, top: int = 4) -> dict:
-    """What decided this model's verdict on this text, and what it was reading.
+    """Top tokens behind this model's verdict.
 
-    The supervisors' question is why two models disagree on one post, and the
-    answer is not that one is better: on the held-out benchmark none of them
-    separates from any other. It is that they are not reading the same objects.
-    A bag of words weighs whole words exactly, and a transformer weighs whatever
-    its tokeniser produced, which on an unfamiliar word is a handful of
-    fragments carrying no meaning a reader would recognise.
+    Used to explain why models disagree: tf-idf sees whole words, transformers
+    often see word pieces.
     """
     card = by_key(model_key)
     if "contributions" in extra:
@@ -144,8 +123,7 @@ def decisive(text: str, model_key: str, probability: float,
     whole = _fragments(text, card)
     ranked = sorted(range(len(effects)), key=lambda i: -abs(effects[i][1]))[:top]
     pairs = [[effects[i][0].strip() or effects[i][0], effects[i][1]] for i in ranked]
-    # a verdict resting on pieces of words is the finding, so it is measured
-    # rather than asserted: the share of the decisive tokens that are fragments
+    # share of the decisive tokens that are word pieces
     pieces = sum(1 for i in ranked if i < len(whole) and not whole[i])
     fragmented = pieces > len(ranked) / 2
     return {"basis": "sub-word pieces" if fragmented else "whole words",
@@ -162,13 +140,7 @@ def score(text: str, model_key: str) -> tuple[float, dict]:
 
 
 def compare(text: str) -> tuple[Figure, list[str]]:
-    """Every available content model on the same input.
-
-    The disagreement is the point. Five models that a benchmark separates by
-    two macro-F1 points will not agree on an arbitrary sentence, and seeing
-    that is a more honest account of the content ceiling than any single
-    number.
-    """
+    """All available content models on the same text (they often disagree)."""
     rows, missing = [], []
     for entry in catalogue("content"):
         if not entry["available"]:
@@ -199,12 +171,7 @@ def compare(text: str) -> tuple[Figure, list[str]]:
 
 
 def _why_they_differ(rows: list[dict]) -> list[str]:
-    """Read the disagreement off the measurements, rather than narrating it.
-
-    Every sentence here has to be true of the rows it accompanies, so each one
-    is emitted only when the numbers support it. Saying nothing is preferable
-    to a stock explanation that happens not to apply to the post on screen.
-    """
+    """Sentences explaining the disagreement, only the ones the numbers support."""
     if len(rows) < 2:
         return []
     said: list[str] = []
@@ -215,7 +182,7 @@ def _why_they_differ(rows: list[dict]) -> list[str]:
             "rather than on words. Their tokenisers split an unfamiliar term into "
             "fragments, and the fragment carries no meaning a reader would recognise.")
 
-    # the sharpest form of disagreement: the same token, opposite directions
+    # same token, opposite sign
     seen: dict[str, list[tuple[str, float]]] = {}
     for row in rows:
         for token, value in row.get("tokens", []):

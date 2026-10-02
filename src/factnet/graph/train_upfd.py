@@ -1,7 +1,4 @@
-"""Train and evaluate propagation-graph detectors on UPFD.
-
-Baseline (GCN/GAT) and the main model (Bi-GCN), reported with accuracy and
-macro-F1 on the test split. Small dataset, runs on CPU.
+"""GCN / GAT / Bi-GCN on UPFD, accuracy + macro-F1 on test. Runs fine on CPU.
 
     uv run python -m factnet.graph.train_upfd
 """
