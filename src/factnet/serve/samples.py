@@ -15,6 +15,18 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
+# the posts behind the "Or try one" buttons, word for word (web/src/components/Examples.tsx)
+EXAMPLE_POSTS = (
+    "Doctors confirm the new vaccine has caused thousands of deaths that health "
+    "agencies refuse to report.",
+    "Researchers at the university published a study showing the drug reduced "
+    "symptoms in 2019 trials.",
+    "Honestly I think this is the funniest thing I have seen all week, my whole "
+    "family loved it.",
+    "En 2024, le ministère a confirmé que le taux de chômage avait baissé selon "
+    "trois sources officielles.",
+)
+
 DATA = Path(__file__).resolve().parents[3] / "data" / "raw" / "bluesky"
 COLLECTED = DATA / "cascades-by-source.jsonl"
 CURATED = Path(__file__).resolve().parents[3] / "data" / "samples.jsonl"

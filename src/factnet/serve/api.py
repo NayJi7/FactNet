@@ -13,19 +13,20 @@ import json
 import os
 import re
 import threading
+import time
 import urllib.error
 from collections.abc import Iterator
 from dataclasses import asdict
 from pathlib import Path
 from typing import Any
 
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, Field
 
 from factnet.serve import datasets as datasets_module
-from factnet.serve import jobs, samples
+from factnet.serve import jobs, quota, samples
 from factnet.serve import results as results_module
 from factnet.serve.pipeline import run
 from factnet.serve.registry import catalogue
@@ -48,6 +49,29 @@ app.add_middleware(
 
 POST_URL = re.compile(r"bsky\.app/profile/([^/]+)/post/([A-Za-z0-9]+)")
 MAX_LIVE_ACCOUNTS = 400
+FETCH_TTL = 3600                        # a live cascade is reused for an hour
+
+
+def _visitor(http: Request) -> str:
+    return quota.visitor_of(http.client.host if http.client else None,
+                            dict(http.headers))
+
+
+def _site_data(request: VerdictRequest, cascade: dict[str, Any] | None) -> bool:
+    """Whether a reading is of data the site already holds, which costs no quota."""
+    if request.sample_id is not None:
+        return True
+    if cascade is None:
+        return request.text.strip() in samples.EXAMPLE_POSTS
+    example = samples.record(samples.smallest())
+    return example is not None and quota.Cache.key(cascade) == quota.Cache.key(example)
+
+
+def _take(http: Request, kind: str) -> None:
+    try:
+        quota.QUOTA.take(_visitor(http), kind)
+    except quota.LimitReached as reached:
+        raise HTTPException(429, reached.message) from reached
 
 
 class VerdictRequest(BaseModel):
@@ -134,12 +158,21 @@ def _resolve(request: VerdictRequest) -> tuple[dict[str, Any] | None, str]:
 
 
 @app.post("/api/verdict")
-def verdict(request: VerdictRequest) -> dict[str, Any]:
+def verdict(request: VerdictRequest, http: Request) -> dict[str, Any]:
     cascade, origin = _resolve(request)
+    free = _site_data(request, cascade)
+    cache = quota.SITE_DATA if free else quota.READINGS
+    key = "plain:" + quota.Cache.key(request.model_dump())
+    cached = cache.get(key)
+    if cached is not None:
+        return cached
+    if not free:
+        _take(http, "reading")
     trace = run(text=request.text, cascade=cascade,
                 content_model=request.model, graph_model=request.graph_model,
-                origin=origin, observed=request.observed)
-    return trace.to_dict()
+                origin=origin, observed=request.observed).to_dict()
+    cache.put(key, trace)
+    return trace
 
 
 def _label(request: VerdictRequest, cascade: dict[str, Any] | None) -> tuple[str, str]:
@@ -171,7 +204,7 @@ def _stream(job: jobs.Job, start: int = 0) -> StreamingResponse:
 
 
 @app.post("/api/verdict/stream")
-def verdict_stream(request: VerdictRequest) -> StreamingResponse:
+def verdict_stream(request: VerdictRequest, http: Request) -> StreamingResponse:
     """Start a reading and follow it, stage by stage as each one lands.
 
     The reading is registered as a job before anything is computed, so that a
@@ -181,17 +214,36 @@ def verdict_stream(request: VerdictRequest) -> StreamingResponse:
     """
     cascade, origin = _resolve(request)
     tab, label = _label(request, cascade)
+    free = _site_data(request, cascade)
+    cache = quota.SITE_DATA if free else quota.READINGS
+    key = "stream:" + quota.Cache.key(request.model_dump())
+    cached = cache.get(key)
+    # joining a reading already under way costs nothing, starting one does
+    if cached is None and not free and jobs.REGISTRY.running() is None:
+        _take(http, "reading")
     job, is_new = jobs.REGISTRY.start(tab, label)
     if not is_new:
         return _stream(job)
 
     def work() -> None:
+        if cached is not None:
+            for step in cached["steps"]:
+                job.append(step)
+            job.finish(summary=cached["summary"])
+            return
+        steps: list[dict[str, Any]] = []
+
+        def on_step(s) -> None:
+            steps.append(asdict(s))
+            job.append(steps[-1])
+
         try:
             trace = run(text=request.text, cascade=cascade,
                         content_model=request.model, graph_model=request.graph_model,
-                        origin=origin, observed=request.observed,
-                        on_step=lambda s: job.append(asdict(s)))
-            job.finish(summary=trace.summary())
+                        origin=origin, observed=request.observed, on_step=on_step)
+            summary = trace.summary()
+            cache.put(key, {"steps": steps, "summary": summary})
+            job.finish(summary=summary)
         except Exception as error:                       # reported, never swallowed
             job.finish(error=f"{type(error).__name__}: {error}")
 
@@ -241,7 +293,7 @@ def validate_cascade(cascade: dict) -> str | None:
 
 
 @app.post("/api/fetch")
-def fetch(request: FetchRequest) -> dict[str, Any]:
+def fetch(request: FetchRequest, http: Request) -> dict[str, Any]:
     """Rebuild a live cascade from a Bluesky post URL.
 
     The account counters are fetched separately, because the views returned
@@ -253,6 +305,12 @@ def fetch(request: FetchRequest) -> dict[str, Any]:
         raise HTTPException(422, "expected a URL like "
                                  "https://bsky.app/profile/<handle>/post/<id>")
     handle, rkey = match.groups()
+
+    key = f"{handle.lower()}/{rkey}"
+    hit = quota.FETCHES.get(key)
+    if hit is not None and time.time() - hit[0] < FETCH_TTL:
+        return {"cascade": hit[1]}
+    _take(http, "fetch")
 
     try:
         from factnet.ingestion.bluesky import BlueskyClient, collect_cascade
@@ -289,6 +347,7 @@ def fetch(request: FetchRequest) -> dict[str, Any]:
             502, f"Bluesky could not be reached ({type(error).__name__}). "
                  "The collected cascades work offline.") from error
 
+    quota.FETCHES.put(key, (time.time(), cascade))
     return {"cascade": cascade}
 
 
@@ -353,6 +412,12 @@ def results() -> dict[str, Any]:
 def data() -> dict[str, Any]:
     """The corpora in play, and how the collected labels were obtained."""
     return datasets_module.payload()
+
+
+@app.get("/api/quota")
+def usage(http: Request) -> dict[str, Any]:
+    """What this visitor has left today."""
+    return quota.QUOTA.status(_visitor(http))
 
 
 @app.get("/api/health")
