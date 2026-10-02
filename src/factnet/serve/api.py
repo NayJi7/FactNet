@@ -11,6 +11,7 @@ from __future__ import annotations
 
 import json
 import os
+import random
 import re
 import threading
 import time
@@ -50,6 +51,7 @@ app.add_middleware(
 POST_URL = re.compile(r"bsky\.app/profile/([^/]+)/post/([A-Za-z0-9]+)")
 MAX_LIVE_ACCOUNTS = 400
 FETCH_TTL = 3600                        # a live cascade is reused for an hour
+REPLAY_SECONDS = (5.5, 9.0)             # a cached reading still plays out its stages
 
 
 def _visitor(http: Request) -> str:
@@ -227,8 +229,13 @@ def verdict_stream(request: VerdictRequest, http: Request) -> StreamingResponse:
 
     def work() -> None:
         if cached is not None:
-            for step in cached["steps"]:
+            steps = cached["steps"]
+            weights = [random.uniform(0.6, 1.6) for _ in range(len(steps) + 1)]
+            total = random.uniform(*REPLAY_SECONDS)
+            for step, w in zip(steps, weights[:-1], strict=True):
+                time.sleep(total * w / sum(weights))
                 job.append(step)
+            time.sleep(total * weights[-1] / sum(weights))
             job.finish(summary=cached["summary"])
             return
         steps: list[dict[str, Any]] = []

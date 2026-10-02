@@ -128,3 +128,27 @@ def test_example_posts_match_the_buttons_on_the_page():
     for entry in re.findall(r'\[\s*"[^"]*",\s*((?:"[^"]*"\s*\+?\s*)+)\]', block):
         page.append("".join(re.findall(r'"([^"]*)"', entry)))
     assert tuple(page) == samples.EXAMPLE_POSTS
+
+
+def test_a_cached_reading_still_takes_its_time(monkeypatch):
+    import time
+
+    from fastapi.testclient import TestClient
+
+    from factnet.serve import api, samples
+
+    monkeypatch.setattr(api, "REPLAY_SECONDS", (0.4, 0.4))
+    monkeypatch.setattr(quota, "SITE_DATA", quota.Cache(None))
+    client = TestClient(api.app)
+    payload = {"text": samples.EXAMPLE_POSTS[1]}
+
+    def read():
+        start = time.monotonic()
+        with client.stream("POST", "/api/verdict/stream", json=payload) as response:
+            body = "".join(response.iter_text())
+        return time.monotonic() - start, body.count("event: step")
+
+    _, computed = read()
+    took, replayed = read()
+    assert replayed == computed > 0
+    assert took >= 0.4
