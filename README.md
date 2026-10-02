@@ -4,23 +4,28 @@
 
 <p align="center">
 
-[![Live dashboard](https://img.shields.io/badge/live-factnet.nayji7.dev-2F6F7E?style=flat-square)](https://factnet.nayji7.dev)
 [![Python](https://img.shields.io/badge/python-3.11-3776AB?style=flat-square&logo=python&logoColor=white)](https://www.python.org/)
 [![PyTorch](https://img.shields.io/badge/PyTorch-EE4C2C?style=flat-square&logo=pytorch&logoColor=white)](https://pytorch.org/)
 [![PyG](https://img.shields.io/badge/PyTorch_Geometric-3C2179?style=flat-square&logo=pyg&logoColor=white)](https://pyg.org/)
 [![Hugging Face](https://img.shields.io/badge/models-Hugging_Face-FFD21E?style=flat-square&logo=huggingface&logoColor=black)](https://huggingface.co/NayJi7/factnet-models)
 [![License: MIT](https://img.shields.io/badge/license-MIT-4b4646?style=flat-square)](LICENSE)
-[![DOI propagation](https://img.shields.io/badge/DOI-10.5281%2Fzenodo.23015281-1682D4?style=flat-square)](https://doi.org/10.5281/zenodo.23015281)
-[![DOI content](https://img.shields.io/badge/DOI-10.5281%2Fzenodo.23014908-1682D4?style=flat-square)](https://doi.org/10.5281/zenodo.23014908)
 
 </p>
 
 <p align="center"><em>Is misinformation recognised by what it says, or by how it spreads? FactNet reads both.</em></p>
 
-<p align="center"><strong>Try it live: <a href="https://factnet.nayji7.dev">factnet.nayji7.dev</a></strong></p>
-
 <p align="center">
   <img src="docs/assets/demo.gif" alt="FactNet demo" width="900">
+</p>
+
+<p align="center">
+  <a href="https://factnet.nayji7.dev"><picture><source media="(prefers-color-scheme: dark)" srcset="docs/assets/buttons/live-dark.svg"><img src="docs/assets/buttons/live-light.svg" alt="Try it live at factnet.nayji7.dev"></picture></a>
+</p>
+
+<p align="center">
+  <a href="https://doi.org/10.5281/zenodo.23015281"><picture><source media="(prefers-color-scheme: dark)" srcset="docs/assets/buttons/report-propagation-dark.svg"><img src="docs/assets/buttons/report-propagation-light.svg" alt="Propagation report"></picture></a>
+&nbsp;
+  <a href="https://doi.org/10.5281/zenodo.23014908"><picture><source media="(prefers-color-scheme: dark)" srcset="docs/assets/buttons/report-content-dark.svg"><img src="docs/assets/buttons/report-content-light.svg" alt="Content report"></picture></a>
 </p>
 
 # FactNet - Misinformation Detection on Social Media
@@ -218,28 +223,10 @@ uv run ruff check
 
 ## Publications
 
-Both reports are published on Zenodo, and the PDFs are in [`docs/papers/`](docs/papers/).
+Both reports are published on Zenodo, and the PDFs are in [`docs/papers/`](docs/papers/). Each Zenodo page exports the citation in BibTeX and other formats.
 
 - **Propagation Structure as a Signal for Misinformation Detection with Graph Neural Networks and Edgeless Baselines** (Technical Report). [doi:10.5281/zenodo.23015281](https://doi.org/10.5281/zenodo.23015281)
 - **Content-Based Misinformation Detection on Short Claims and Full News Articles** (Technical Report). [doi:10.5281/zenodo.23014908](https://doi.org/10.5281/zenodo.23014908)
-
-```bibtex
-@techreport{terrak2026propagation,
-  title  = {Propagation Structure as a Signal for Misinformation Detection with Graph Neural Networks and Edgeless Baselines},
-  author = {Terrak, Adam and El Harsal, Abdelah and Ouguerd, Ayman and Saghir, Louaye and Hamid, Suraya and Abdul Ghani, Norjihan},
-  year   = {2026},
-  institution = {Zenodo},
-  doi    = {10.5281/zenodo.23015281}
-}
-
-@techreport{terrak2026content,
-  title  = {Content-Based Misinformation Detection on Short Claims and Full News Articles},
-  author = {Terrak, Adam and Ouguerd, Ayman and El Harsal, Abdelah and Saghir, Louaye and Abdul Ghani, Norjihan and Hamid, Suraya},
-  year   = {2026},
-  institution = {Zenodo},
-  doi    = {10.5281/zenodo.23014908}
-}
-```
 
 ## Data and Ethics
 
@@ -251,9 +238,13 @@ The Bluesky sample shared here is anonymised: every account is a pseudonym and e
 
 ## Authors
 
-**Adam Terrak** - [@NayJi7](https://github.com/NayJi7)
-**Abdelah El Harsal** - [@abdel95j](https://github.com/abdel95j)
-**Ayman Ouguerd** - [@aymanouguerd](https://github.com/aymanouguerd)
-**Louaye Saghir** - [@Lyeryne](https://github.com/Lyeryne)
+- <a href="https://github.com/NayJi7"><img src="https://github.com/NayJi7.png?size=64" width="22" align="top" alt=""></a>&nbsp; [**Adam Terrak**](https://github.com/NayJi7)
+- <a href="https://github.com/abdel95j"><img src="https://github.com/abdel95j.png?size=64" width="22" align="top" alt=""></a>&nbsp; [**Abdelah El Harsal**](https://github.com/abdel95j)
+- <a href="https://github.com/aymanouguerd"><img src="https://github.com/aymanouguerd.png?size=64" width="22" align="top" alt=""></a>&nbsp; [**Ayman Ouguerd**](https://github.com/aymanouguerd)
+- <a href="https://github.com/Lyeryne"><img src="https://github.com/Lyeryne.png?size=64" width="22" align="top" alt=""></a>&nbsp; [**Louaye Saghir**](https://github.com/Lyeryne)
 
 Supervised by Dr Suraya Hamid and Dr Norjihan Abdul Ghani, Faculty of Computer Science and Information Technology, Universiti Malaya.
+
+---
+
+<sub>AI assistance was used to help write this README and to build parts of the dashboard. The research, the experiments and the reports are the authors' own work.</sub>
