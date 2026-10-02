@@ -5,6 +5,7 @@ import DataView from "./components/DataView";
 import Specimen from "./components/Specimen";
 import Models from "./components/Models";
 import Institutions from "./components/Institutions";
+import Usage from "./components/Usage";
 import InputPanel from "./components/InputPanel";
 import Pending from "./components/Pending";
 import MeasureRail from "./components/MeasureRail";
@@ -283,11 +284,14 @@ export default function App() {
             <span className="hidden h-12 w-px bg-rule sm:block" aria-hidden />
             <Institutions />
           </div>
-          <p className="max-w-[54ch] text-[12px] leading-relaxed text-ink-faint">
-            A research prototype. The propagation model is trained on 400 cascades
-            collected from Bluesky and two public benchmarks. It is not a deployable
-            classifier, and a reading here is an argument, not a ruling.
-          </p>
+          <div>
+            <p className="max-w-[54ch] text-[12px] leading-relaxed text-ink-faint">
+              A research prototype. The propagation model is trained on 400 cascades
+              collected from Bluesky and two public benchmarks. It is not a deployable
+              classifier, and a reading here is an argument, not a ruling.
+            </p>
+            <Usage />
+          </div>
         </div>
       </footer>
     </div>

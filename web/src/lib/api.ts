@@ -1,5 +1,8 @@
 import type { ModelCard, Sample, SampleDetail, Step, Trace } from "./types";
 
+// the footer counter listens for this to refresh what is left today
+const spent = () => window.dispatchEvent(new Event("factnet:usage"));
+
 async function call<T>(path: string, body?: unknown): Promise<T> {
   const response = await fetch(`/api${path}`, {
     method: body === undefined ? "GET" : "POST",
@@ -36,7 +39,15 @@ export const getVerdict = (payload: {
 }) => call<Trace>("/verdict", payload);
 
 export const fetchCascade = (url: string) =>
-  call<{ cascade: Record<string, any> }>("/fetch", { url });
+  call<{ cascade: Record<string, any> }>("/fetch", { url }).finally(spent);
+
+export interface Usage {
+  reading: { limit: number; left: number };
+  fetch: { limit: number; left: number };
+  resets_at: string;
+}
+
+export const getUsage = () => call<Usage>("/quota");
 
 export interface JobInfo {
   id: string;
@@ -115,7 +126,7 @@ export async function streamVerdict(
       body: JSON.stringify(payload),
     }),
     onStep, onJob,
-  );
+  ).finally(spent);
 }
 
 /** Rejoin a reading already under way, replaying the stages it has produced. */
