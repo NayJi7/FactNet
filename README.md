@@ -1,9 +1,10 @@
 <p align="center">
-  <img src="web/public/logos/logo-txt.png" alt="FactNet" width="260">
+  <img src="docs/assets/banner.png" alt="FactNet, misinformation detection on social media" width="900">
 </p>
 
 <p align="center">
 
+[![Live dashboard](https://img.shields.io/badge/live-factnet.nayji7.dev-2F6F7E?style=flat-square)](https://factnet.nayji7.dev)
 [![Python](https://img.shields.io/badge/python-3.11-3776AB?style=flat-square&logo=python&logoColor=white)](https://www.python.org/)
 [![PyTorch](https://img.shields.io/badge/PyTorch-EE4C2C?style=flat-square&logo=pytorch&logoColor=white)](https://pytorch.org/)
 [![PyG](https://img.shields.io/badge/PyTorch_Geometric-3C2179?style=flat-square&logo=pyg&logoColor=white)](https://pyg.org/)
@@ -15,6 +16,8 @@
 </p>
 
 <p align="center"><em>Is misinformation recognised by what it says, or by how it spreads? FactNet reads both.</em></p>
+
+<p align="center"><strong>Try it live: <a href="https://factnet.nayji7.dev">factnet.nayji7.dev</a></strong></p>
 
 <p align="center">
   <img src="docs/assets/demo.gif" alt="FactNet demo" width="900">
@@ -35,9 +38,18 @@ The system has two modules that run on their own:
 
 The content score can be handed to the propagation module as a feature of the root of the cascade. Both modules were trained on public benchmarks, then carried onto 400 cascades collected from Bluesky to see what survives outside the benchmark.
 
-<p align="center">
-  <img src="docs/figures/two-halves-crop.png" alt="One Bluesky cascade read by both modules" width="720">
-</p>
+## Screenshots
+
+<table>
+  <tr>
+    <td align="center" width="50%"><img src="docs/figures/two-halves-crop.png" alt="One Bluesky cascade read by both modules"></td>
+    <td align="center" width="50%"><img src="docs/figures/cascade-apnews.png" alt="A collected Bluesky cascade"></td>
+  </tr>
+  <tr>
+    <td align="center"><sub>One Bluesky cascade read by both modules</sub></td>
+    <td align="center"><sub>A collected cascade: the source in orange, two hubs of reshares</sub></td>
+  </tr>
+</table>
 
 ## Key Features
 
@@ -59,6 +71,7 @@ The content score can be handed to the propagation module as a feature of the ro
 - **Anonymised export**: every account replaced by a stable pseudonym before anything is shared
 
 ### Dashboard
+Hosted at [factnet.nayji7.dev](https://factnet.nayji7.dev).
 - **Paste a post** to get the content verdict, or **paste a Bluesky link** to collect its cascade live
 - Cascade drawing, hop distances, influence ranking and the verdict of every model, side by side
 - Results and data views over every experiment, built from the files the experiments wrote
