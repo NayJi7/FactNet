@@ -3,16 +3,14 @@
 </p>
 
 <p align="center">
-
-[![Python](https://img.shields.io/badge/python-3.11-3776AB?style=flat-square&logo=python&logoColor=white)](https://www.python.org/)
-[![PyTorch](https://img.shields.io/badge/PyTorch-EE4C2C?style=flat-square&logo=pytorch&logoColor=white)](https://pytorch.org/)
-[![PyG](https://img.shields.io/badge/PyTorch_Geometric-3C2179?style=flat-square&logo=pyg&logoColor=white)](https://pyg.org/)
-[![Hugging Face](https://img.shields.io/badge/models-Hugging_Face-FFD21E?style=flat-square&logo=huggingface&logoColor=black)](https://huggingface.co/NayJi7/factnet-models)
-[![License: MIT](https://img.shields.io/badge/license-MIT-4b4646?style=flat-square)](LICENSE)
-
+  <a href="https://www.python.org/"><img src="https://img.shields.io/badge/python-3.11-3776AB?style=flat-square&logo=python&logoColor=white" alt="Python"></a>
+  <a href="https://pytorch.org/"><img src="https://img.shields.io/badge/PyTorch-EE4C2C?style=flat-square&logo=pytorch&logoColor=white" alt="PyTorch"></a>
+  <a href="https://pyg.org/"><img src="https://img.shields.io/badge/PyTorch_Geometric-3C2179?style=flat-square&logo=pyg&logoColor=white" alt="PyG"></a>
+  <a href="https://huggingface.co/NayJi7/factnet-models"><img src="https://img.shields.io/badge/models-Hugging_Face-FFD21E?style=flat-square&logo=huggingface&logoColor=black" alt="Hugging Face"></a>
+  <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-4b4646?style=flat-square" alt="License: MIT"></a>
 </p>
 
-<p align="center"><em>Is misinformation recognised by what it says, or by how it spreads? FactNet reads both.</em></p>
+<p align="center"><em>Misinformation detection from what a post says and from how it spreads.</em></p>
 
 <p align="center">
   <img src="docs/assets/demo.gif" alt="FactNet demo" width="900">
@@ -30,7 +28,7 @@
 
 # FactNet - Misinformation Detection on Social Media
 
-> Two independent detectors, one reading the text of a post and one reading the cascade of people who shared it, joined at a single integration point and served through an interactive dashboard.
+> Two detectors: one looks at the text of a post, the other at the cascade of accounts that reshared it. The content score can be passed to the graph model, and both run behind a web dashboard.
 
 ## About FactNet
 
@@ -41,20 +39,21 @@ The system has two modules that run on their own:
 - a **content module** that classifies a post as reliable or misleading from its wording, with fine-tuned language models,
 - a **propagation module** that classifies the cascade of reshares behind a post, with graph neural networks, and ranks the accounts that drive it.
 
-The content score can be handed to the propagation module as a feature of the root of the cascade. Both modules were trained on public benchmarks, then carried onto 400 cascades collected from Bluesky to see what survives outside the benchmark.
+The content score can be added as a feature on the root node of the cascade. Both modules were trained on public benchmarks, then tested on 400 cascades we collected from Bluesky.
 
 ## Screenshots
 
-<table>
-  <tr>
-    <td align="center" width="50%"><img src="docs/figures/two-halves-crop.png" alt="One Bluesky cascade read by both modules"></td>
-    <td align="center" width="50%"><img src="docs/figures/cascade-apnews.png" alt="A collected Bluesky cascade"></td>
-  </tr>
-  <tr>
-    <td align="center"><sub>One Bluesky cascade read by both modules</sub></td>
-    <td align="center"><sub>A collected cascade: the source in orange, two hubs of reshares</sub></td>
-  </tr>
-</table>
+<p align="center">
+  <img src="docs/figures/two-halves-crop.png" alt="One Bluesky cascade read by both modules" width="720">
+  <br>
+  <sub>One Bluesky cascade read by both modules</sub>
+</p>
+
+<p align="center">
+  <img src="docs/figures/cascade-apnews.png" alt="A collected Bluesky cascade" width="480">
+  <br>
+  <sub>A collected cascade: the source in orange, two hubs of reshares</sub>
+</p>
 
 ## Key Features
 
@@ -76,7 +75,6 @@ The content score can be handed to the propagation module as a feature of the ro
 - **Anonymised export**: every account replaced by a stable pseudonym before anything is shared
 
 ### Dashboard
-Hosted at [factnet.nayji7.dev](https://factnet.nayji7.dev).
 - **Paste a post** to get the content verdict, or **paste a Bluesky link** to collect its cascade live
 - Cascade drawing, hop distances, influence ranking and the verdict of every model, side by side
 - Results and data views over every experiment, built from the files the experiments wrote
@@ -96,7 +94,7 @@ Macro-F1, mean of three seeds. Full tables and controls are in the [technical re
 | Bluesky, trained on Twitter | Bi-GCN | 0.768 |
 | Bluesky | One-parameter rule on cascade size | 0.902 |
 
-The two reports read these numbers in detail: a simple baseline matches the graph model on GossipCop, the text of a short claim caps every content model, and transfer from Twitter to Bluesky does not hold.
+The reports go through these numbers in detail. In short, a plain baseline matches the graph model on GossipCop, no content model gets far on short claims, and a model trained on Twitter does not carry over well to Bluesky.
 
 ## Tech Stack
 
@@ -238,10 +236,12 @@ The Bluesky sample shared here is anonymised: every account is a pseudonym and e
 
 ## Authors
 
-- <a href="https://github.com/NayJi7"><img src="https://github.com/NayJi7.png?size=64" width="22" align="top" alt=""></a>&nbsp; [**Adam Terrak**](https://github.com/NayJi7)
-- <a href="https://github.com/abdel95j"><img src="https://github.com/abdel95j.png?size=64" width="22" align="top" alt=""></a>&nbsp; [**Abdelah El Harsal**](https://github.com/abdel95j)
-- <a href="https://github.com/aymanouguerd"><img src="https://github.com/aymanouguerd.png?size=64" width="22" align="top" alt=""></a>&nbsp; [**Ayman Ouguerd**](https://github.com/aymanouguerd)
-- <a href="https://github.com/Lyeryne"><img src="https://github.com/Lyeryne.png?size=64" width="22" align="top" alt=""></a>&nbsp; [**Louaye Saghir**](https://github.com/Lyeryne)
+<p>
+<a href="https://github.com/NayJi7"><img src="https://github.com/NayJi7.png?size=96" width="48" align="center" alt=""></a>&nbsp;&nbsp;<a href="https://github.com/NayJi7"><b>Adam Terrak</b></a><br>
+<a href="https://github.com/abdel95j"><img src="https://github.com/abdel95j.png?size=96" width="48" align="center" alt=""></a>&nbsp;&nbsp;<a href="https://github.com/abdel95j"><b>Abdelah El Harsal</b></a><br>
+<a href="https://github.com/aymanouguerd"><img src="https://github.com/aymanouguerd.png?size=96" width="48" align="center" alt=""></a>&nbsp;&nbsp;<a href="https://github.com/aymanouguerd"><b>Ayman Ouguerd</b></a><br>
+<a href="https://github.com/Lyeryne"><img src="https://github.com/Lyeryne.png?size=96" width="48" align="center" alt=""></a>&nbsp;&nbsp;<a href="https://github.com/Lyeryne"><b>Louaye Saghir</b></a>
+</p>
 
 Supervised by Dr Suraya Hamid and Dr Norjihan Abdul Ghani, Faculty of Computer Science and Information Technology, Universiti Malaya.
 
