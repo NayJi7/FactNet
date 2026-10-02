@@ -16,6 +16,10 @@
 
 <p align="center"><em>Is misinformation recognised by what it says, or by how it spreads? FactNet reads both.</em></p>
 
+<p align="center">
+  <img src="docs/assets/demo.gif" alt="FactNet demo" width="900">
+</p>
+
 # FactNet - Misinformation Detection on Social Media
 
 > Two independent detectors, one reading the text of a post and one reading the cascade of people who shared it, joined at a single integration point and served through an interactive dashboard.
