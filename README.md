@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="docs/assets/banner.png" alt="FactNet, misinformation detection on social media" width="900">
+  <picture><source media="(prefers-color-scheme: dark)" srcset="docs/assets/banner-dark.png"><img src="docs/assets/banner-light.png" alt="FactNet, misinformation detection on social media" width="900"></picture>
 </p>
 
 <p align="center">
